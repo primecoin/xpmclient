@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-VERSION="10.5-beta1"
+VERSION="10.5-beta2"
 
 # Linux static build
 
@@ -52,9 +52,9 @@ cd /home/user/build/xpmclient/x86_64-Linux
 cmake ../src -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX=/home/user/install/x86_64-Linux \
   -DSTATIC_BUILD=ON \
-  -DOpenCL_INCLUDE_DIR=/usr/local/cuda-10.1/include \
-  -DOpenCL_LIBRARY=/usr/local/cuda-10.1/lib64/libOpenCL.so \
-  -DCUDA_driver_LIBRARY=/usr/local/cuda-10.1/compat/libcuda.so
+  -DOpenCL_INCLUDE_DIR=/usr/local/cuda-11.2/include \
+  -DOpenCL_LIBRARY=/usr/local/cuda-11.2/lib64/libOpenCL.so \
+  -DCUDA_driver_LIBRARY=/usr/local/cuda-11.2/compat/libcuda.so
 make -j`nproc`
 strip xpmclient
 strip xpmclientnv
@@ -81,8 +81,8 @@ chmod +x xpmclientnv
 cp ../../src/xpm/cuda/config.txt .
 mkdir -p xpm/cuda
 cp ../../src/xpm/cuda/*.cu xpm/cuda
-cp /usr/local/cuda-10.1/lib64/libnvrtc.so.10.1 .
-cp /usr/local/cuda-10.1/lib64/libnvrtc-builtins.so .
+cp /usr/local/cuda-11.2/lib64/libnvrtc.so.11.2 .
+cp /usr/local/cuda-11.2/lib64/libnvrtc-builtins.so .
 cd ..
 tar -czf xpmclient-cuda-$VERSION-linux.tar.gz xpmclient-cuda-$VERSION-linux
 
@@ -169,8 +169,8 @@ cp /usr/lib/gcc/x86_64-w64-mingw32/7.3-posix/libgcc_s_seh-1.dll .
 cp /usr/lib/gcc/x86_64-w64-mingw32/7.3-posix/libstdc++-6.dll .
 cp /usr/x86_64-w64-mingw32/lib/libwinpthread-1.dll .
 cp /home/user/install/x86_64-w64-mingw32/bin/libzmq.dll .
-cp /usr/local/cuda-win32/bin/nvrtc64_101_0.dll .
-cp /usr/local/cuda-win32/bin/nvrtc-builtins64_101.dll .
+cp /usr/local/cuda-win32/bin/nvrtc64_112_0.dll .
+cp /usr/local/cuda-win32/bin/nvrtc-builtins64_112.dll .
 cd ..
 zip -9 -r xpmclient-cuda-$VERSION-win64.zip xpmclient-cuda-$VERSION-win64
 

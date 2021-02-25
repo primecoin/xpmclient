@@ -48,6 +48,9 @@ bool cudaCompileKernel(const char *kernelName,
     NVRTC_SAFE_CALL(nvrtcGetProgramLog(prog, log));
     delete[] log;
     if (compileResult != NVRTC_SUCCESS) {
+      LOG_F(ERROR, "nvrtcCompileProgram error: %s", nvrtcGetErrorString(compileResult));
+      if (compileResult == NVRTC_ERROR_BUILTIN_OPERATION_FAILURE)
+          LOG_F(ERROR, "Possible too old driver version, 460.xx or newer required");
       return false;
     }
     

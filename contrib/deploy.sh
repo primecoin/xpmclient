@@ -1,14 +1,14 @@
 #!/bin/bash
 set -e
-VERSION="10.5-beta1"
+VERSION="10.5-beta2"
 
 
-CUDA10_INSTALLER="cuda_10.1.168_425.25_win10.exe"
+CUDA10_INSTALLER="cuda_11.2.1_461.09_win10.exe"
 
 if docker inspect --type=image xpmclient-$VERSION > /dev/null 2> /dev/null; then
   echo "xpmclient-$VERSION image already exists"
 else
-  echo "FROM nvidia/cuda:10.1-devel-ubuntu18.04" > xpmclient.Dockerfile
+  echo "FROM nvidia/cuda:11.2.1-devel-ubuntu18.04" > xpmclient.Dockerfile
   echo "ENV DEBIAN_FRONTEND=noninteractive" >> xpmclient.Dockerfile
 
   # For debugging purposes, use apt-cacher-ng at localhost
@@ -20,13 +20,13 @@ else
   # Extract nvrtc to /usr/local/cuda-win32
   echo "COPY $CUDA10_INSTALLER /tmp" >> xpmclient.Dockerfile
   echo "RUN mkdir /usr/local/cuda-win32" >> xpmclient.Dockerfile
-  echo "RUN 7z -o/tmp x '-i!nvrtc*' '-i!nvcc*' /tmp/$CUDA10_INSTALLER"  >> xpmclient.Dockerfile
-  echo "RUN cp -r /tmp/nvrtc/bin /usr/local/cuda-win32/bin" >> xpmclient.Dockerfile
-  echo "RUN cp -r /tmp/nvrtc_dev/include /usr/local/cuda-win32/include" >> xpmclient.Dockerfile
-  echo "RUN cp -r /tmp/nvrtc_dev/lib /usr/local/cuda-win32/lib" >> xpmclient.Dockerfile
-  echo "RUN cp -r /tmp/nvcc/include/* /usr/local/cuda-win32/include/" >> xpmclient.Dockerfile
-  echo "RUN cp -r /tmp/nvcc/lib/* /usr/local/cuda-win32/lib/" >> xpmclient.Dockerfile
-  echo "RUN rm -rf /tmp/$CUDA10_INSTALLER /tmp/nvrtc /tmp/nvrtc_dev" >> xpmclient.Dockerfile
+  echo "RUN 7z -o/tmp x '-i!cuda_nvrtc*' '-i!cuda_cudart*' /tmp/$CUDA10_INSTALLER"  >> xpmclient.Dockerfile
+  echo "RUN cp -r /tmp/cuda_nvrtc/nvrtc/bin /usr/local/cuda-win32/bin" >> xpmclient.Dockerfile
+  echo "RUN cp -r /tmp/cuda_nvrtc/nvrtc_dev/include /usr/local/cuda-win32/include" >> xpmclient.Dockerfile
+  echo "RUN cp -r /tmp/cuda_nvrtc/nvrtc_dev/lib /usr/local/cuda-win32/lib" >> xpmclient.Dockerfile
+  echo "RUN cp -r /tmp/cuda_cudart/cudart/include/* /usr/local/cuda-win32/include/" >> xpmclient.Dockerfile
+  echo "RUN cp -r /tmp/cuda_cudart/cudart/lib/* /usr/local/cuda-win32/lib/" >> xpmclient.Dockerfile
+  echo "RUN rm -rf /tmp/$CUDA10_INSTALLER /tmp/cuda_nvrtc /tmp/cuda_cudart" >> xpmclient.Dockerfile
 
   echo "RUN useradd -ms /bin/bash -U user" >> xpmclient.Dockerfile
   echo "RUN chown -R user /usr/local/cuda-win32" >> xpmclient.Dockerfile
