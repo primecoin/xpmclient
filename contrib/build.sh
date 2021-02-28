@@ -82,7 +82,7 @@ cp ../../src/xpm/cuda/config.txt .
 mkdir -p xpm/cuda
 cp ../../src/xpm/cuda/*.cu xpm/cuda
 cp /usr/local/cuda-11.2/lib64/libnvrtc.so.11.2 .
-cp /usr/local/cuda-11.2/lib64/libnvrtc-builtins.so .
+cp /usr/local/cuda-11.2/lib64/libnvrtc-builtins.so.11.2 .
 cd ..
 tar -czf xpmclient-cuda-$VERSION-linux.tar.gz xpmclient-cuda-$VERSION-linux
 

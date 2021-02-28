@@ -49,8 +49,6 @@ bool cudaCompileKernel(const char *kernelName,
     delete[] log;
     if (compileResult != NVRTC_SUCCESS) {
       LOG_F(ERROR, "nvrtcCompileProgram error: %s", nvrtcGetErrorString(compileResult));
-      if (compileResult == NVRTC_ERROR_BUILTIN_OPERATION_FAILURE)
-          LOG_F(ERROR, "Possible too old driver version, 460.xx or newer required");
       return false;
     }
     
@@ -62,13 +60,6 @@ bool cudaCompileKernel(const char *kernelName,
     
     // Destroy the program.
     NVRTC_SAFE_CALL(nvrtcDestroyProgram(&prog));
-
-    // Patch PTX (downgrade .version)
-    if (majorComputeCapability <= 6) {
-      char *pv = strstr(ptx, ".version 6.");
-      if (pv)
-        pv[11] = '0';
-    }
     
     {
       std::ofstream bin(kernelName, std::ofstream::binary | std::ofstream::trunc);
@@ -96,6 +87,25 @@ bool cudaCompileKernel(const char *kernelName,
   bfile.read(ptx.get(), binsize);
   bfile.close();
   
-  CUDA_SAFE_CALL(cuModuleLoadDataEx(module, ptx.get(), 0, 0, 0));
+  CUresult result = cuModuleLoadDataEx(module, ptx.get(), 0, 0, 0);
+  if (result != CUDA_SUCCESS) {
+    if (result == CUDA_ERROR_INVALID_PTX) {
+      LOG_F(WARNING, "GPU Driver version too old, update recommended");
+      LOG_F(WARNING, "Workaround: downgrade version in PTX to 6.0 ...");
+      char *pv = strstr(ptx.get(), ".version ");
+      if (pv) {
+        pv[9] = '6';
+        pv[11] = '0';
+      }
+
+      CUDA_SAFE_CALL(cuModuleLoadDataEx(module, ptx.get(), 0, 0, 0));
+    } else {
+      const char *msg;
+      cuGetErrorName(result, &msg);
+      LOG_F(ERROR, "Loading CUDA module failed with error %s", msg);
+      return false;
+    }
+  }
+
   return true;
 }

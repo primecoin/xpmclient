@@ -948,7 +948,7 @@ bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adju
 		char kernelname[64];
 		char ccoption[64];
 		sprintf(kernelname, "kernelxpm_gpu%u.ptx", gpus[i].index);
-        sprintf(ccoption, "--gpu-architecture=compute_%i%i", 6, 1);
+        sprintf(ccoption, "--gpu-architecture=compute_%i%i", gpus[i].majorComputeCapability, gpus[i].minorComputeCapability);
     const char *options[] = { ccoption, arguments.c_str() };
 		CUDA_SAFE_CALL(cuCtxSetCurrent(gpus[i].context));
     if (!cudaCompileKernel(kernelname,
