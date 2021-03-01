@@ -89,7 +89,7 @@ bool cudaCompileKernel(const char *kernelName,
   
   CUresult result = cuModuleLoadDataEx(module, ptx.get(), 0, 0, 0);
   if (result != CUDA_SUCCESS) {
-    if (result == CUDA_ERROR_INVALID_PTX) {
+    if (result == CUDA_ERROR_INVALID_PTX || result == CUDA_ERROR_UNSUPPORTED_PTX_VERSION) {
       LOG_F(WARNING, "GPU Driver version too old, update recommended");
       LOG_F(WARNING, "Workaround: downgrade version in PTX to 6.0 ...");
       char *pv = strstr(ptx.get(), ".version ");
