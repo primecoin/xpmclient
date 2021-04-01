@@ -3,15 +3,16 @@ set -e
 VERSION="10.5-beta2"
 
 # Linux static build
-
+mkdir dependslinux
+cd dependslinux
 wget https://ftp.gnu.org/gnu/gmp/gmp-6.1.2.tar.lz
 wget https://download.libsodium.org/libsodium/releases/libsodium-1.0.17.tar.gz
 wget https://github.com/zeromq/libzmq/releases/download/v4.3.1/zeromq-4.3.1.tar.gz
 wget https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protobuf-cpp-3.6.1.tar.gz
 wget https://developer.download.nvidia.com/compute/cuda/11.2.0/local_installers/cuda_11.2.0_460.27.04_linux.run
 git clone https://github.com/CLRX/CLRX-mirror.git
-mkdir buildlinux
-cd buildlinux
+mkdir dist
+cd dist
 export DEPENDS=`pwd`
 mkdir tmp
 mkdir toolkit
@@ -70,10 +71,8 @@ export C_INCLUDE_PATH=$C_INCLUDE_PATH:$DEPENDS/include
 export CPLUS_INCLUDE_PATH=$CPLUS_INCLUDE_PATH:$DEPENDS/include
 cd ..
 
-git clone https://github.com/eXtremal-ik7/xpmclient.git
-cd xpmclient
-mkdir build
-cd  build
+mkdir buildlinux
+cd  buildlinux
 cmake ../src -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$DEPENDS -DSTATIC_BUILD=ON -DOpenCL_INCLUDE_DIR=$DEPENDS/toolkit/include -DOpenCL_LIBRARY=$DEPENDS/toolkit/lib64/libOpenCL.so
 possibly another choice is
 (cmake ../src -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$DEPENDS -DSTATIC_BUILD=ON -DOpenCL_INCLUDE_DIR=$DEPENDS/toolkit/include -DOpenCL_LIBRARY=$DEPENDS/toolkit/lib64/libOpenCL.so  -DCUDA_driver_LIBRARY=$DEPENDS/toolkit/lib64/stubs/libcuda.so -DCUDA_CUDA_LIBRARY=$DEPENDS/toolkit/lib64/libcudart.so -DCUDA_nvrtc_LIBRARY=$DEPENDS/toolkit/lib64/libnvrtc.so)
