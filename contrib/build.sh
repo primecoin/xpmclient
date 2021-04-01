@@ -3,8 +3,12 @@ set -e
 VERSION="10.5-beta2"
 
 # Linux static build
-mkdir dependslinux
-cd dependslinux
+if [ -d dependslinux ]; then
+  cd dependslinux
+else
+  mkdir dependslinux
+  cd dependslinux
+fi
 if [ ! -f gmp-6.1.2.tar.lz ]; then
   wget https://ftp.gnu.org/gnu/gmp/gmp-6.1.2.tar.lz
 fi
