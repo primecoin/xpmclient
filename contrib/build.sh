@@ -5,12 +5,24 @@ VERSION="10.5-beta2"
 # Linux static build
 mkdir dependslinux
 cd dependslinux
-wget https://ftp.gnu.org/gnu/gmp/gmp-6.1.2.tar.lz
-wget https://download.libsodium.org/libsodium/releases/libsodium-1.0.17.tar.gz
-wget https://github.com/zeromq/libzmq/releases/download/v4.3.1/zeromq-4.3.1.tar.gz
-wget https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protobuf-cpp-3.6.1.tar.gz
-wget https://developer.download.nvidia.com/compute/cuda/11.2.0/local_installers/cuda_11.2.0_460.27.04_linux.run
-git clone https://github.com/CLRX/CLRX-mirror.git
+if [ ! -f gmp-6.1.2.tar.lz ]; then
+  wget https://ftp.gnu.org/gnu/gmp/gmp-6.1.2.tar.lz
+fi
+if [ ! -f libsodium-1.0.17.tar.gz ]; then
+  wget https://download.libsodium.org/libsodium/releases/libsodium-1.0.17.tar.gz
+fi
+if [ ! -f zeromq-4.3.1.tar.gz ]; then
+  wget https://github.com/zeromq/libzmq/releases/download/v4.3.1/zeromq-4.3.1.tar.gz
+fi
+if [ ! -f protobuf-cpp-3.6.1.tar.gz ]; then
+  wget https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protobuf-cpp-3.6.1.tar.gz
+fi
+if [ ! -f cuda_11.2.0_460.27.04_linux.run ]; then
+  wget https://developer.download.nvidia.com/compute/cuda/11.2.0/local_installers/cuda_11.2.0_460.27.04_linux.run
+fi
+if [ ! -d CLRX-mirror ]; then
+  git clone https://github.com/CLRX/CLRX-mirror.git
+fi
 mkdir dist
 cd dist
 export DEPENDS=`pwd`
