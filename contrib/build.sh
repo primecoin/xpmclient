@@ -25,7 +25,6 @@ fi
 if [ ! -d CLRX-mirror ]; then
   git clone https://github.com/CLRX/CLRX-mirror.git
 fi
-if
 if [ ! -d dist ]; then
   mkdir dist
 fi
