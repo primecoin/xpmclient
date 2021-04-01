@@ -3,12 +3,10 @@ set -e
 VERSION="10.5-beta2"
 
 # Linux static build
-if [ -d dependslinux ]; then
-  cd dependslinux
-else
+if [ ! -d dependslinux ]; then
   mkdir dependslinux
-  cd dependslinux
 fi
+cd dependslinux
 if [ ! -f gmp-6.1.2.tar.lz ]; then
   wget https://ftp.gnu.org/gnu/gmp/gmp-6.1.2.tar.lz
 fi
@@ -27,12 +25,21 @@ fi
 if [ ! -d CLRX-mirror ]; then
   git clone https://github.com/CLRX/CLRX-mirror.git
 fi
-mkdir dist
+if
+if [ ! -d dist ]; then
+  mkdir dist
+fi
 cd dist
 export DEPENDS=`pwd`
-mkdir tmp
-mkdir toolkit
-mkdir samples
+if [ ! -d tmp ]; then
+  mkdir tmp
+fi
+if [ ! -d toolkit ]; then
+  mkdir toolkit
+fi
+if [ ! -d samples ]; then
+  mkdir samples
+fi
 cd ..
 
 # gmp
