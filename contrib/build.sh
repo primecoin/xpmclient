@@ -100,8 +100,6 @@ if [ ! -d buildlinux ]; then
 fi
 cd  buildlinux
 cmake ../src -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$DEPENDS -DSTATIC_BUILD=ON -DOpenCL_INCLUDE_DIR=$DEPENDS/toolkit/include -DOpenCL_LIBRARY=$DEPENDS/toolkit/lib64/libOpenCL.so
-possibly another choice is
-(cmake ../src -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$DEPENDS -DSTATIC_BUILD=ON -DOpenCL_INCLUDE_DIR=$DEPENDS/toolkit/include -DOpenCL_LIBRARY=$DEPENDS/toolkit/lib64/libOpenCL.so  -DCUDA_driver_LIBRARY=$DEPENDS/toolkit/lib64/stubs/libcuda.so -DCUDA_CUDA_LIBRARY=$DEPENDS/toolkit/lib64/libcudart.so -DCUDA_nvrtc_LIBRARY=$DEPENDS/toolkit/lib64/libnvrtc.so)
 make
 strip xpmclient
 strip xpmclientnv
