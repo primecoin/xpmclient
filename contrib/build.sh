@@ -77,7 +77,9 @@ cd ..
 
 # CLRX
 cd CLRX-mirror
-mkdir build
+if [ ! -d build ]; then
+  mkdir build
+fi
 cd build
 cmake ../ -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$DEPENDS
 make
@@ -93,7 +95,9 @@ export C_INCLUDE_PATH=$C_INCLUDE_PATH:$DEPENDS/include
 export CPLUS_INCLUDE_PATH=$CPLUS_INCLUDE_PATH:$DEPENDS/include
 cd ..
 
-mkdir buildlinux
+if [ ! -d buildlinux ]; then
+  mkdir buildlinux
+fi
 cd  buildlinux
 cmake ../src -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$DEPENDS -DSTATIC_BUILD=ON -DOpenCL_INCLUDE_DIR=$DEPENDS/toolkit/include -DOpenCL_LIBRARY=$DEPENDS/toolkit/lib64/libOpenCL.so
 possibly another choice is
