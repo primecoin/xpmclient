@@ -63,29 +63,25 @@ public:
 	//--------
 	inline void wantDiagnostics(bool value);
 	inline bool wantDiagnostics();
-	void parseSchema(const char ** schema, int schemaSize)
-												throw(ConfigurationException);
-	void parseSchema(const char ** nullTerminatedSchema)
-												throw(ConfigurationException);
+	void parseSchema(const char ** schema, int schemaSize);
+	void parseSchema(const char ** nullTerminatedSchema);
 	inline void validate(
 		const Configuration *	cfg,
 		const char *			scope,
 		const char *			localName,
-		ForceMode				forceMode = DO_NOT_FORCE) const
-												throw(ConfigurationException);
+		ForceMode				forceMode = DO_NOT_FORCE) const;
 	void validate(
 		const Configuration *	cfg,
 		const char *			scope,
 		const char *			localName,
 		bool					recurseIntoSubscopes,
 		Configuration::Type		typeMask,
-		ForceMode				forceMode = DO_NOT_FORCE) const
-												throw(ConfigurationException);
+		ForceMode				forceMode = DO_NOT_FORCE) const;
 protected:
 	//--------
 	// Operations that can be called by a subclass.
 	//--------
-	void registerType(SchemaType * type) throw(ConfigurationException);
+	void registerType(SchemaType * type);
 
 private:
 	friend int compareSchemaIdRuleInfo(const void *, const void *);
@@ -103,19 +99,16 @@ private:
 		const char *			scope,
 		const char *			localName,
 		const StringVector &	itemNames,
-		ForceMode				forceMode) const
-												throw(ConfigurationException);
+		ForceMode				forceMode) const;
 	void validateForceMode(
 		const Configuration *	cfg,
 		const char *			scope,
 		const char *			localName,
-		ForceMode				forceMode) const
-												throw(ConfigurationException);
+		ForceMode				forceMode) const;
 	void validateRequiredUidEntry(
 		const Configuration *	cfg,
 		const char *			fullScope,
-		SchemaIdRuleInfo *		idRule) const
-												throw(ConfigurationException);
+		SchemaIdRuleInfo *		idRule) const;
 
 	void callCheckRule(
 		const SchemaType *		target,
@@ -163,7 +156,7 @@ private:
 		const char *			typeName,
 		Configuration::Type		cfgType,
 		const char *			baseTypeName,
-		const StringVector &	baseTypeArgs) throw(ConfigurationException);
+		const StringVector &	baseTypeArgs);
 
 	SchemaIdRuleInfo * findIdRule(const char * name) const;
 	bool shouldIgnore(
@@ -206,7 +199,7 @@ SchemaValidator::validate(
 	const Configuration *	cfg,
 	const char *			scope,
 	const char *			localName,
-	ForceMode				forceMode) const throw(ConfigurationException)
+	ForceMode				forceMode) const
 {
 	validate(cfg, scope, localName, true, Configuration::CFG_SCOPE_AND_VARS,
 			 forceMode);

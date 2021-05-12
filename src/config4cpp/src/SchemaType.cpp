@@ -58,7 +58,6 @@ SchemaType::validate(
 	const char *				origTypeName,
 	const StringVector &		typeArgs,
 	int							indentLevel) const
-											throw(ConfigurationException)
 {
 	const char *				value;
 	const char *				sep;
@@ -118,7 +117,6 @@ SchemaType::callValidate(
 	const char *				origTypeName,
 	const StringVector &		typeArgs,
 	int							indentLevel) const
-											throw(ConfigurationException)
 {
 	sv->callValidate(target, cfg, scope, name, typeName, origTypeName,
 					 typeArgs, indentLevel);

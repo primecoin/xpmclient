@@ -51,7 +51,7 @@ static LexBase::KeywordInfo	keywordInfoArray[] = {
 const static int keywordInfoArraySize
 		= sizeof(keywordInfoArray) / sizeof(keywordInfoArray[0]);
 
-SchemaLex::SchemaLex(const char * str) throw(ConfigurationException)
+SchemaLex::SchemaLex(const char * str)
 	: LexBase(str)
 {
 	m_keywordInfoArray     = keywordInfoArray;

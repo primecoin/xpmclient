@@ -52,8 +52,7 @@ public:
 	//--------
 	// Public API
 	//--------
-	void parse(const char ** schema, int schemaSize)
-												throw(ConfigurationException);
+	void parse(const char ** schema, int schemaSize);
 
 private:
 	//--------
@@ -61,19 +60,17 @@ private:
 	//--------
 	void parseIdRule(
 			const char *			rule,
-			SchemaIdRuleInfo *		SchemaIdRuleInfo)
-												throw(ConfigurationException);
+			SchemaIdRuleInfo *		SchemaIdRuleInfo);
 	void parseIgnoreRule(
 			const char *			rule,
-			SchemaIgnoreRuleInfo *	SchemaIgnoreRuleInfo)
-												throw(ConfigurationException);
+			SchemaIgnoreRuleInfo *	SchemaIgnoreRuleInfo);
 
-	void parseUserTypeDef(const char * str) throw(ConfigurationException);
+	void parseUserTypeDef(const char * str);
 
 	void accept(
 			short					sym,
 			const char *			rule,
-			const char *			msg) throw(ConfigurationException);
+			const char *			msg);
 
 	//--------
 	// Instance variables

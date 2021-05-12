@@ -70,7 +70,7 @@ SchemaParser::~SchemaParser()
 void
 SchemaParser::parse(
 	const char **		schema,
-	int					schemaSize) throw(ConfigurationException)
+	int					schemaSize)
 {
 	int					i;
 	const char *		schemaItem;
@@ -189,7 +189,7 @@ SchemaParser::parse(
 void
 SchemaParser::parseIdRule(
 	const char *			rule,
-	SchemaIdRuleInfo *		ruleInfo) throw(ConfigurationException)
+	SchemaIdRuleInfo *		ruleInfo)
 {
 	StringBuffer			msg;
 	SchemaType *			typeDef;
@@ -292,7 +292,7 @@ SchemaParser::parseIdRule(
 void
 SchemaParser::parseIgnoreRule(
 	const char *			rule,
-	SchemaIgnoreRuleInfo *	ruleInfo) throw(ConfigurationException)
+	SchemaIgnoreRuleInfo *	ruleInfo)
 {
 	ruleInfo->m_symbol = m_token.type();
 	m_lex->nextToken(m_token); // consume the "@ignore<something>" keyword
@@ -316,7 +316,7 @@ SchemaParser::parseIgnoreRule(
 //----------------------------------------------------------------------
 
 void
-SchemaParser::parseUserTypeDef(const char * str) throw(ConfigurationException)
+SchemaParser::parseUserTypeDef(const char * str)
 {
 	StringBuffer			msg;
 	SchemaType *			baseTypeDef;
@@ -392,7 +392,7 @@ void
 SchemaParser::accept(
 	short				sym,
 	const char *		rule,
-	const char *		msgPrefix) throw(ConfigurationException)
+	const char *		msgPrefix)
 {
 	StringBuffer		msg;
 

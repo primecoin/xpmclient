@@ -8,14 +8,12 @@
 
 
 #include "xpmclient.h"
+#include "hwmon-adl.h"
+#include "hwmon-amdgpu.h"
 #include "prime.h"
 #include "benchmarks.h"
 #include "codegen/generic.h"
 #include "codegen/gcn.h"
-
-extern "C" {
-	#include "adl.h"
-}
 
 #include "loguru.hpp"
 
@@ -738,7 +736,6 @@ XPMClient::~XPMClient() {
 	zmq_close(mBlockPub);
 	zmq_close(mWorkPub);
 	zmq_close(mStatsPull);
-  clear_adl(mNumDevices);
 	
 }
 
@@ -1161,6 +1158,11 @@ bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adju
     char deviceName[128];
     clGetDeviceInfo(gpus[i], CL_DEVICE_NAME, sizeof(deviceName), deviceName, nullptr);
 
+    std::string targetArguments = arguments;
+    const char *gfx = strstr(deviceName, "gfx");
+    if (gfx == deviceName && atoi(deviceName+3) >= 900)
+      targetArguments += " -D__GFX900_OR_HIGHER";
+
     // Force rebuild kernel if target chain length changed and we didn't compile kernel for current device before
     bool needRebuild = (adjustedKernelTarget != 0) & knownDevices.insert(deviceName).second;
 
@@ -1179,35 +1181,35 @@ bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adju
 
     {
       const char *sources[] = {"xpm/opencl/generic_sha256.cl"};
-      if (!clCompileKernel(gContext[i], gpus[i], sha256KernelFile, sources, 1, arguments.c_str(), &binstatus[i], &programs.sha256, needRebuild))
+      if (!clCompileKernel(gContext[i], gpus[i], sha256KernelFile, sources, 1, targetArguments.c_str(), &binstatus[i], &programs.sha256, needRebuild))
         return false;
     }
 
     {
       const char *sources[] = {"xpm/opencl/generic_sieve.cl"};
-      if (!clCompileKernel(gContext[i], gpus[i], sieveKernelFile, sources, 1, arguments.c_str(), &binstatus[i], &programs.sieve, needRebuild))
+      if (!clCompileKernel(gContext[i], gpus[i], sieveKernelFile, sources, 1, targetArguments.c_str(), &binstatus[i], &programs.sieve, needRebuild))
         return false;
     }
 
     {
       const char *sources[] = {"xpm/opencl/generic_sieve_utils.cl"};
-      if (!clCompileKernel(gContext[i], gpus[i], sieveUtilsKernelFile, sources, 1, arguments.c_str(), &binstatus[i], &programs.sieveUtils, needRebuild))
+      if (!clCompileKernel(gContext[i], gpus[i], sieveUtilsKernelFile, sources, 1, targetArguments.c_str(), &binstatus[i], &programs.sieveUtils, needRebuild))
         return false;
     }
 
     if (!useGCN) {
       const char *sources[] = {"xpm/opencl/generic_Fermat.cl"};
-      if (!clCompileKernel(gContext[i], gpus[i], FermatKernelFile, sources, 1, arguments.c_str(), &binstatus[i], &programs.Fermat, needRebuild))
+      if (!clCompileKernel(gContext[i], gpus[i], FermatKernelFile, sources, 1, targetArguments.c_str(), &binstatus[i], &programs.Fermat, needRebuild))
         return false;
     } else {
       const char *sources[] = {"xpm/opencl/gcn_Fermat.asm"};
-      if (!clCompileGCNKernel(gContext[i], gpus[i], FermatKernelFile, sources, 1, arguments.c_str(), &binstatus[i], &programs.Fermat, needRebuild))
+      if (!clCompileGCNKernel(gContext[i], gpus[i], FermatKernelFile, sources, 1, targetArguments.c_str(), &binstatus[i], &programs.Fermat, needRebuild))
         return false;
     }
 
     {
       const char *sources[] = {"xpm/opencl/generic_Fermat_utils.cl"};
-      if (!clCompileKernel(gContext[i], gpus[i], FermatUtilsKernelFile, sources, 1, arguments.c_str(), &binstatus[i], &programs.FermatUtils, needRebuild))
+      if (!clCompileKernel(gContext[i], gpus[i], FermatUtilsKernelFile, sources, 1, targetArguments.c_str(), &binstatus[i], &programs.FermatUtils, needRebuild))
         return false;
     }
 
@@ -1219,8 +1221,30 @@ bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adju
       return false;
   }
 
-  setup_adl();
-  
+  if (HWMonADL::isAvailable())
+    _hwmon.reset(new HWMonADL(mNumDevices));
+#ifdef LINUX
+  else if (HWMonAmdGpu::isAvailable())
+    _hwmon.reset(new HWMonAmdGpu(mNumDevices));
+#endif
+  else
+    _hwmon.reset(new HWMonEmpty());
+
+  for (unsigned i = 0; i < mNumDevices; ++i) {
+    if (mCoreFreq[i] > 0)
+      if (!_hwmon->setCoreClock(i, mCoreFreq[i]))
+        LOG_F(INFO, "set_engineclock(%d, %d) failed", i, mCoreFreq[i]);
+    if (mMemFreq[i] > 0)
+      if (!_hwmon->setMemoryClock(i, mMemFreq[i]))
+         LOG_F(INFO, "set_memoryclock(%d, %d) failed", i, mMemFreq[i]);
+    if (mPowertune[i] >= -20 && mPowertune[i] <= 50)
+      if (!_hwmon->setPowertune(i, mPowertune[i]))
+        LOG_F(INFO, "set_powertune(%d, %d) failed", i, mPowertune[i]);
+    if (mFanSpeed[i] > 0)
+      if(!_hwmon->setFanSpeed(i, mFanSpeed[i]))
+        LOG_F(INFO, "set_fanspeed(%d, %d) failed", i, mFanSpeed[i]);
+  }
+
   if (benchmarkOnly) {
     for (unsigned i = 0; i < gpus.size(); i++) {
       char deviceName[128];
@@ -1368,21 +1392,35 @@ int XPMClient::GetStats(proto::ClientStats& stats) {
   int crashed = 0;
   
 	for(unsigned i = 0; i < nw; ++i){
-		
+    char temperature[16];
+    char activity[16];
+
 		int devid = mDeviceMapRev[i];
-		int temp = gpu_temp(devid);
-		int activity = gpu_activity(devid);
-		
-		if(temp > maxtemp)
-			maxtemp = temp;
-		
+    auto t = _hwmon->getTemperature(devid);
+    auto a = _hwmon->getActivity(devid);
+    if (t.has_value()) {
+      snprintf(temperature, sizeof(temperature), "%iC", t.value());
+      if(t.value() > maxtemp)
+        maxtemp = t.value();
+    } else {
+      strcpy(temperature, "unknown");
+      strcpy(temperature, "unknown");
+    }
+
+    if (a.has_value()) {
+      snprintf(activity, sizeof(activity), "%i%%", a.value());
+    } else {
+      strcpy(activity, "unknown");
+    }
+
+				
 		cpd += wstats[i].cpd;
 		errors += wstats[i].errors;
 		
 		if(running[i]){
 			ngpus++;
-      LOG_F(INFO, "[GPU %d] T=%dC A=%d%% E=%d primes=%f fermat=%d/sec cpd=%.2f/day",
-					i, temp, activity, wstats[i].errors, wstats[i].primeprob, wstats[i].fps, wstats[i].cpd);
+      LOG_F(INFO, "[GPU %d] T=%s A=%s E=%d primes=%f fermat=%d/sec cpd=%.2f/day",
+          i, temperature, activity, wstats[i].errors, wstats[i].primeprob, wstats[i].fps, wstats[i].cpd);
 		}else if(!mWorkers[i].first)
       LOG_F(ERROR, "[GPU %d] failed to start!", i);
 		else if(mPaused) {
@@ -1399,13 +1437,52 @@ int XPMClient::GetStats(proto::ClientStats& stats) {
     system(onCrash);
   }
 	
-	if(mStatCounter % 10 == 0)
-		for(unsigned i = 0; i < mNumDevices; ++i){
+  if (mStatCounter % 10 == 4) {
+    char coreClock[32];
+    char memoryClock[32];
+    char powerTune[32];
+    char fanSpeed[32];
+
+    for (unsigned i = 0; i < mNumDevices; ++i) {
 			int gpuid = mDeviceMap[i];
-			if(gpuid >= 0)
-        LOG_F(INFO, "GPU %d: core=%dMHz mem=%dMHz powertune=%d fanspeed=%d",
-						gpuid, gpu_engineclock(i), gpu_memclock(i), gpu_powertune(i), gpu_fanspeed(i));
+      if (gpuid < 0)
+        continue;
+
+      {
+        auto v = _hwmon->getCoreClock(gpuid);
+        if (v.has_value())
+          snprintf(coreClock, sizeof(coreClock), "%iMHz", v.value());
+        else
+          strcpy(coreClock, "unknown");
+      }
+
+      {
+        auto v = _hwmon->getMemoryClock(gpuid);
+        if (v.has_value())
+          snprintf(memoryClock, sizeof(memoryClock), "%iMHz", v.value());
+        else
+          strcpy(memoryClock, "unknown");
+      }
+
+      {
+        auto v = _hwmon->getPowertune(gpuid);
+        if (v.has_value())
+          snprintf(powerTune, sizeof(powerTune), "%i%%", v.value());
+        else
+          strcpy(powerTune, "unknown");
+      }
+
+      {
+        auto v = _hwmon->getFanSpeed(gpuid);
+        if (v.has_value())
+          snprintf(fanSpeed, sizeof(fanSpeed), "%i", v.value());
+        else
+          strcpy(fanSpeed, "unknown");
+      }
+
+      LOG_F(INFO, "GPU %d: core=%s mem=%s powertune=%s fanspeed=%s%%", gpuid, coreClock, memoryClock, powerTune, fanSpeed);
 		}
+  }
 	
 	stats.set_cpd(cpd);
 	stats.set_errors(errors);
@@ -1426,26 +1503,4 @@ void XPMClient::Toggle()
   }
 
   mPaused = !mPaused;
-}
-
-
-void XPMClient::setup_adl(){
-	
-	init_adl(mNumDevices);
-	
-	for(unsigned i = 0; i < mNumDevices; ++i){
-		
-		if(mCoreFreq[i] > 0)
-			if(set_engineclock(i, mCoreFreq[i]))
-        LOG_F(INFO, "set_engineclock(%d, %d) failed", i, mCoreFreq[i]);
-		if(mMemFreq[i] > 0)
-			if(set_memoryclock(i, mMemFreq[i]))
-        LOG_F(INFO, "set_memoryclock(%d, %d) failed", i, mMemFreq[i]);
-		if(mPowertune[i] >= -20 && mPowertune[i] <= 20)
-			if(set_powertune(i, mPowertune[i]))
-        LOG_F(INFO, "set_powertune(%d, %d) failed", i, mPowertune[i]);
-    if (mFanSpeed[i] > 0)
-      if(set_fanspeed(i, mFanSpeed[i]))
-        LOG_F(INFO, "set_fanspeed(%d, %d) failed", i, mFanSpeed[i]);
-	}
 }

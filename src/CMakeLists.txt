@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 project(xpmclient)
 
-set (CMAKE_CXX_STANDARD 11)
+set (CMAKE_CXX_STANDARD 17)
 option(STATIC_BUILD "Build with static libraries on Linux")
 option(SANITIZER_ENABLED "Build with address sanitizer" OFF)
 option(GPROF_ENABLED "Build with GNU profiler (use gprof ./exename -p > out.txt)" OFF)
@@ -101,10 +101,21 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 endif()
 
 # XPM GPU Client
+if (WIN32)
+  set(AMD_MONITORING_SOURCES
+    hwmon-adl.cpp
+  )
+else()
+  set(AMD_MONITORING_SOURCES
+    hwmon-adl.cpp
+    hwmon-amdgpu.cpp
+  )
+endif()
 
 add_executable(xpmclient
   adl.cpp
   baseclient.cpp
+  ${AMD_MONITORING_SOURCES}
   loguru.cpp
   opencl.cpp
   prime.cpp

@@ -298,7 +298,7 @@ void cudaMultiplyBenchmark(CUfunction *kernels,
       LOG_F(ERROR, "gpu: ");
       for (unsigned j = 0; j < mulOperandSize*2; j++)
         LOG_F(ERROR, "%08X ", mR[i*mulOperandSize*2 + j]);
-      LOG_F(ERROR, "");
+      LOG_F(ERROR, " ");
       LOG_F(ERROR, "results differ!");
       break;
     }
@@ -397,7 +397,7 @@ void cudaFermatTestBenchmark(CUfunction *kernels,
       LOG_F(ERROR, "gpu: ");
       for (unsigned j = 0; j < operandSize; j++)
         LOG_F(ERROR, "%08X ", gpuResults[i*operandSize + j]);
-      LOG_F(ERROR, "");
+      LOG_F(ERROR, " ");
       LOG_F(ERROR, "results differ!");
       break;
     }
@@ -900,7 +900,7 @@ void cudaSieveTestBenchmark(CUfunction *kernels,
            (double)n320 / count,
            (double)n352 / count);
     LOG_F(INFO, " * 320bit/352bit ratio: %.3lf/1", (double)n320/(double)n352);
-    LOG_F(INFO, "");
+    LOG_F(INFO, " ");
   }
 }
 

@@ -14,6 +14,7 @@
 
 #include "baseclient.h"
 #include "opencl.h"
+#include "hwmon.h"
 #include "uint256.h"
 #include "sha256.h"
 
@@ -266,14 +267,13 @@ public:
 	bool TakeWork(const proto::Work& work);
 	int GetStats(proto::ClientStats& stats);
 	void Toggle();
-	void setup_adl();
 	
 private:
 	Configuration *_cfg;
+  std::unique_ptr<HWMon> _hwmon;
 	bool clKernelTargetAutoAdjust;
 	
   std::vector<std::pair<PrimeMiner*, void*> > mWorkers;
-
 
   bool checkProgramKernelConfig(const char *kernelName,
                                 cl_context context,

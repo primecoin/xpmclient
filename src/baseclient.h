@@ -150,13 +150,12 @@ public:
   virtual bool TakeWork(const proto::Work& work) = 0;
   virtual int GetStats(proto::ClientStats& stats) = 0;
   virtual void Toggle() = 0;
-  virtual void setup_adl() = 0;
   
 protected:
   void* mCtx;
   
-  std::map<int,int> mDeviceMap;
-  std::map<int,int> mDeviceMapRev;
+  std::map<unsigned,int> mDeviceMap;
+  std::map<unsigned,int> mDeviceMapRev;
   
   void* mBlockPub;
   void* mWorkPub;

@@ -262,7 +262,7 @@ SchemaValidator::registerBuiltinTypes()
 
 
 void
-SchemaValidator::registerType(SchemaType * type) throw(ConfigurationException)
+SchemaValidator::registerType(SchemaType * type)
 {
 	checkTypeDoesNotExist(type->typeName());
 	ensureSpaceInTypesArray();
@@ -278,7 +278,7 @@ SchemaValidator::registerTypedef(
 	const char *				typeName,
 	Configuration::Type			cfgType,
 	const char *				baseTypeName,
-	const StringVector &		baseTypeArgs) throw(ConfigurationException)
+	const StringVector &		baseTypeArgs)
 {
 	checkTypeDoesNotExist(typeName);
 	ensureSpaceInTypesArray();
@@ -327,7 +327,6 @@ SchemaValidator::ensureSpaceInTypesArray()
 
 void
 SchemaValidator::parseSchema(const char ** nullTerminatedRulesArray)
-												throw(ConfigurationException)
 {
 	int				size;
 
@@ -341,7 +340,7 @@ SchemaValidator::parseSchema(const char ** nullTerminatedRulesArray)
 void
 SchemaValidator::parseSchema(
 	const char **		schema,
-	int					schemaSize) throw(ConfigurationException)
+	int					schemaSize)
 {
 	SchemaParser		schemaParser(this);
 	const char *		prefix = "---- " CONFIG4CPP_NAMESPACE_STR
@@ -373,7 +372,6 @@ SchemaValidator::validate(
 	bool						recurseIntoSubscopes,
 	Configuration::Type			typeMask,
 	ForceMode					forceMode) const
-												throw(ConfigurationException)
 {
 	StringBuffer				fullyScopedName;
 	StringVector				itemNames;
@@ -399,7 +397,7 @@ SchemaValidator::validate(
 	const char *			scope,
 	const char *			localName,
 	const StringVector &	itemNames,
-	ForceMode				forceMode) const throw(ConfigurationException)
+	ForceMode				forceMode) const
 {
 	StringBuffer			fullyScopedName;
 	StringBuffer			unlistedName;
@@ -492,7 +490,7 @@ SchemaValidator::validateForceMode(
 	const Configuration *	cfg,
 	const char *			scope,
 	const char *			localName,
-	ForceMode				forceMode) const throw(ConfigurationException)
+	ForceMode				forceMode) const
 {
 	int						i;
 	bool					isOptional;
@@ -539,7 +537,7 @@ void
 SchemaValidator::validateRequiredUidEntry(
 	const Configuration *	cfg,
 	const char *			fullScope,
-	SchemaIdRuleInfo *		idRule) const throw(ConfigurationException)
+	SchemaIdRuleInfo *		idRule) const
 {
 	const char *			nameInRule;
 	const char *			lastDot;

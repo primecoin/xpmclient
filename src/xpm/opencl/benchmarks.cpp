@@ -90,6 +90,7 @@ static inline const char *algorithmName(AlgorithmIdTy id)
     case aidMontgomeryMultiply : return "monmul";
     case aidMontgomeryRedchalf : return "redchalf";
     case aidRedcify : return "redcify";
+    default : return "unknown";
   }
 }
 
@@ -98,6 +99,7 @@ static inline char kernelSuffix(TestTypeTy type)
   switch (type) {
     case ttUnitTest : return 'u';
     case ttPerformanceTest : return 'p';
+    default : return '_';
   }
 }
 
@@ -613,7 +615,7 @@ void monMulBenchmark(cl_context context,
   if (testType == ttPerformanceTest) {
     double gpuTime = std::chrono::duration_cast<std::chrono::microseconds>(gpuEnd-gpuBegin).count() / 1000.0;
     double opsNum = ((elementsNum*MulOpsNum) / 1000000.0) / gpuTime * 1000.0;
-    LOG_F(INFO, "%s %u bits: %.3lfms (%.3lfM ops/sec)", kernelNameBuffer, gpuTime, opsNum);
+    LOG_F(INFO, "%s %u bits: %.3lfms (%.3lfM ops/sec)", kernelNameBuffer, operandSize*32, gpuTime, opsNum);
   } else {
     LOG_F(INFO, "%s bits: %s", kernelNameBuffer, testIsOk ? "OK" : "FAIL");
   }
@@ -740,7 +742,7 @@ void redcifyBenchmark(cl_context context,
       LOG_F(ERROR, "gpu: ");
       for (unsigned j = 0; j < resultSize; j++)
         LOG_F(ERROR, "%08X ", mR[i*resultMemSize + j]);
-      LOG_F(ERROR, "");
+      LOG_F(ERROR, " ");
       LOG_F(ERROR, "results differ!");
       testIsOk = false;
       break;
@@ -879,7 +881,7 @@ void divideBenchmark(cl_context context,
     if (testType == ttPerformanceTest) {
       double gpuTime = std::chrono::duration_cast<std::chrono::microseconds>(gpuEnd-gpuBegin).count() / 1000.0;
       double opsNum = ((elementsNum*MulOpsNum) / 1000000.0) / gpuTime * 1000.0;
-      LOG_F(INFO, "%s %u bits: %.3lfms (%.3lfM ops/sec)", kernelNameBuffer, gpuTime, opsNum);
+      LOG_F(INFO, "%s %u bits: %.3lfms (%.3lfM ops/sec)", kernelNameBuffer, divisorSize*32, gpuTime, opsNum);
     } else {
       LOG_F(INFO, "%s bits: %s", kernelNameBuffer, testIsOk ? "OK" : "FAIL");
     }
@@ -1011,7 +1013,7 @@ void hashmodBenchmark(cl_context context,
                       cl_command_queue queue,
                       cl_program program,
                       unsigned defaultGroupSize,
-                      unsigned groupsNum,
+                      unsigned,
                       mpz_class *allPrimorials,
                       unsigned mPrimorial)
 {
@@ -1189,7 +1191,7 @@ void sieveTestBenchmark(cl_context context,
                         cl_command_queue queue,
                         openclPrograms &programs,
                         unsigned defaultGroupSize,
-                        unsigned groupsNum,
+                        unsigned,
                         mpz_class *allPrimorial,
                         unsigned mPrimorial,
                         config_t mConfig,
@@ -1336,7 +1338,7 @@ void sieveTestBenchmark(cl_context context,
     mpz_import(mpzRealPrimorial.get_mpz_t(), 2, -1, 4, 0, 0, &realPrimorial);            
     primorialIdx = std::max(mPrimorial, primorialIdx) - mPrimorial;
     mpz_class mpzHashMultiplier = allPrimorial[primorialIdx] / mpzRealPrimorial;
-    unsigned hashMultiplierSize = mpz_sizeinbase(mpzHashMultiplier.get_mpz_t(), 2);      
+
     mpz_import(mpzRealPrimorial.get_mpz_t(), 2, -1, 4, 0, 0, &realPrimorial);        
     
     PrimeMiner::block_t b = blockheader;
@@ -1398,8 +1400,6 @@ void sieveTestBenchmark(cl_context context,
   clSetKernelArg(mSieveSearch, 7, sizeof(cl_uint), &mDepth);
 
   unsigned count = checkCandidates ? 1 : std::min(64u, hashmod.count[0]);
-  unsigned candidates320[64];
-  unsigned candidates352[64];
   
   clFinish(queue);  
   auto gpuBegin = std::chrono::steady_clock::now();  

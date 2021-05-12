@@ -33,7 +33,7 @@ SchemaTypeTuple::checkRule(
 	const Configuration *		cfg,
 	const char *				typeName,
 	const StringVector &		typeArgs,
-	const char *				rule) const throw(ConfigurationException)
+	const char *				rule) const
 {
 	StringBuffer				msg;
 	int							i;
@@ -90,7 +90,6 @@ SchemaTypeTuple::validate(
 	const char *				origTypeName,
 	const StringVector &		typeArgs,
 	int							indentLevel) const
-											throw(ConfigurationException)
 {
 	StringBuffer				msg;
 	StringBuffer				errSuffix;

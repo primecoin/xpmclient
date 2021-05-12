@@ -56,7 +56,7 @@ public:
 	//--------
 	// Constructors and destructor
 	//--------
-	SchemaLex(const char * str) throw(ConfigurationException);
+	SchemaLex(const char * str);
 	virtual ~SchemaLex();
 
 private:

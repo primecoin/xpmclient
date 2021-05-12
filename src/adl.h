@@ -172,6 +172,7 @@ extern const int opt_targettemp;
 extern const int opt_overheattemp;
 extern const int opt_cutofftemp;
 
+bool prepare_adl(void);
 void init_adl(int nDevs);
 float gpu_temp(int gpu);
 int gpu_engineclock(int gpu);

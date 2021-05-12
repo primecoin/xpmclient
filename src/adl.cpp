@@ -179,7 +179,7 @@ static bool fanspeed_twin(struct gpu_adl *ga, struct gpu_adl *other_ga)
 	return true;
 }
 
-static bool prepare_adl(void)
+bool prepare_adl(void)
 {
 	int result;
 
@@ -193,7 +193,6 @@ static bool prepare_adl(void)
 		hDLL = LoadLibrary("atiadlxy.dll");
 #endif
 	if (hDLL == NULL) {
-    LOG_F(ERROR, "Unable to load ati adl library");
 		return false;
 	}
 	ADL_Main_Control_Create = (ADL_MAIN_CONTROL_CREATE) GetProcAddress(hDLL,"ADL_Main_Control_Create");
@@ -223,7 +222,6 @@ static bool prepare_adl(void)
 		!ADL_Overdrive5_ODPerformanceLevels_Get || !ADL_Overdrive5_ODPerformanceLevels_Set ||
 		!ADL_Main_Control_Refresh || !ADL_Overdrive5_PowerControl_Get ||
 		!ADL_Overdrive5_PowerControl_Set || !ADL_Overdrive5_FanSpeedToDefault_Set) {
-      LOG_F(ERROR, "ATI ADL's API is missing");
 		return false;
 	}
 
@@ -231,13 +229,11 @@ static bool prepare_adl(void)
 	// retrieve adapter information only for adapters that are physically present and enabled in the system
 	result = ADL_Main_Control_Create (ADL_Main_Memory_Alloc, 1);
 	if (result != ADL_OK) {
-    LOG_F(ERROR, "ADL Initialisation Error! Error %d!", result);
 		return false;
 	}
 
 	result = ADL_Main_Control_Refresh();
 	if (result != ADL_OK) {
-    LOG_F(ERROR, "ADL Refresh Error! Error %d!", result);
 		return false;
 	}
 

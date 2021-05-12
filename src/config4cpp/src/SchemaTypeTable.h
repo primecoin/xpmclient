@@ -46,7 +46,7 @@ protected:
 		const Configuration *	cfg,
 		const char *			typeName,
 		const StringVector &	typeArgs,
-		const char *			rule) const throw(ConfigurationException);
+		const char *			rule) const;
 
 	virtual void validate(
 		const SchemaValidator *	sv,
@@ -56,8 +56,7 @@ protected:
 		const char *			typeName,
 		const char *			origTypeName,
 		const StringVector &	typeArgs,
-		int						indentLevel) const
-											throw(ConfigurationException);
+		int						indentLevel) const;
 };
 
 
