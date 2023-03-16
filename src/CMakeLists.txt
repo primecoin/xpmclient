@@ -129,10 +129,6 @@ add_executable(xpmclient
   ${ProtoSources}
 )
 
-SET_TARGET_PROPERTIES(xpmclient PROPERTIES
-  COMPILE_FLAGS "-std=c++0x"
-)
-
 target_include_directories(xpmclient PUBLIC
   ${CMAKE_SOURCE_DIR}
   ${CMAKE_SOURCE_DIR}/xpm/opencl

@@ -484,7 +484,7 @@ __global__ void bhashmodUsePrecalc(uint32_t nonceOffset,
     
     uint32_t prod13l = 1;
     for (unsigned i = 0; i < 8; i++)
-      prod13l = mul24(prod13l, select(gPrimes[i], 1u, primorialBitField & (1u << i)));
+      prod13l = __umul24(prod13l, select(gPrimes[i], 1u, primorialBitField & (1u << i)));
     prod13l *= select(gPrimes[8], 1u, primorialBitField & (1u << 8));
     
     uint64_t prod13 = prod13l;

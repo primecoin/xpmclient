@@ -44,11 +44,11 @@ bool cudaCompileKernel(const char *kernelName,
     // Obtain compilation log from the program.
     size_t logSize;
     NVRTC_SAFE_CALL(nvrtcGetProgramLogSize(prog, &logSize));
-    char *log = new char[logSize];
-    NVRTC_SAFE_CALL(nvrtcGetProgramLog(prog, log));
-    delete[] log;
+    std::unique_ptr<char[]> log(new char[logSize]);
+    NVRTC_SAFE_CALL(nvrtcGetProgramLog(prog, log.get()));
     if (compileResult != NVRTC_SUCCESS) {
       LOG_F(ERROR, "nvrtcCompileProgram error: %s", nvrtcGetErrorString(compileResult));
+      LOG_F(ERROR, "%s\n", log.get());
       return false;
     }
     

@@ -387,7 +387,7 @@ void PrimeMiner::Mining(void *ctx, void *pipe) {
 				testCount = 0;
 			}
 		}
-		
+
 		stats.primeprob = pow(double(primeCount)/double(fermatCount), 1./mDepth)
 				- 0.0003 * (double(mConfig.TARGET-1)/2. - double(mDepth-1)/2.);
 		stats.cpd = 24.*3600. * double(stats.fps) * pow(stats.primeprob, mConfig.TARGET);
