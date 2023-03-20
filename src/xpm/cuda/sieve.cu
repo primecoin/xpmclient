@@ -51,9 +51,10 @@ __global__ void sieve(uint32_t *gsieve_all,
     pos += __umul24((uint32_t)(fentry * fiprime), prime);
       pos -= entry;
     pos += ((int)pos < 0 ? prime : 0);
-#if STRIPES > 256
+#if STRIPES > 224
     pos += ((int)pos < 0 ? prime : 0);
 #endif
+
     pos += __umul24(lpoff, prime);
 
     uint4 vpos = {pos,
@@ -141,6 +142,9 @@ __global__ void sieve(uint32_t *gsieve_all,
     pos += __umul24((uint32_t)(fentry * fiprime), prime);
       pos -= entry;
     pos += ((int)pos < 0 ? prime : 0);
+#if STRIPES > 224
+    pos += ((int)pos < 0 ? prime : 0);
+#endif
     
     uint32_t index = pos >> 5;
     
@@ -149,6 +153,7 @@ __global__ void sieve(uint32_t *gsieve_all,
                     pos + prime};
         
       const uint32_t add = 2*prime;
+
       while (vpos.y < SIZE*32) {
         atomicOr(&sieve[vpos.x >> 5], 1u << (vpos.x%32));
         atomicOr(&sieve[vpos.y >> 5], 1u << (vpos.y%32));
@@ -210,6 +215,9 @@ __global__ void sieve(uint32_t *gsieve_all,
     pos += __umul24((uint32_t)(fentry * fiprime), prime);
       pos -= entry;
     pos += ((int)pos < 0 ? prime : 0);
+#if STRIPES > 224
+    pos += ((int)pos < 0 ? prime : 0);
+#endif
 
     uint32_t index = pos >> 5;
     if(index < SIZE)

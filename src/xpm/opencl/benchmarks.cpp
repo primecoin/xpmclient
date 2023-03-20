@@ -1380,6 +1380,7 @@ void sieveTestBenchmark(cl_context context,
 
   OCL(hashBuf.copyToDevice(queue, false));
   
+  unsigned MSO = 1024 * mConfig.STRIPES / 2;
   for(int sieveIdx = 0; sieveIdx < 64; ++sieveIdx) {
     for (int pipelineIdx = 0; pipelineIdx < FERMAT_PIPELINES; pipelineIdx++)
       OCL(sieveBuffers[sieveIdx][pipelineIdx].init(context, MSO, CL_MEM_READ_WRITE));

@@ -325,6 +325,7 @@ void PrimeMiner::Mining(void *ctx, void *pipe) {
   CUDA_SAFE_CALL(hashmod.count.init(1, false));
   CUDA_SAFE_CALL(hashBuf.init(PW*mConfig.N, false));
 	
+  unsigned MSO = 1024 * mConfig.STRIPES / 2;
 	for(int sieveIdx = 0; sieveIdx < SW; ++sieveIdx) {
     for(int instIdx = 0; instIdx < 2; ++instIdx){    
       for (int pipelineIdx = 0; pipelineIdx < FERMAT_PIPELINES; pipelineIdx++)
@@ -639,8 +640,8 @@ void PrimeMiner::Mining(void *ctx, void *pipe) {
 		int numcandis = final.count[0];
 		numcandis = std::min(numcandis, (int)final.info._size);
 		numcandis = std::max(numcandis, 0);
-//  		printf("got %d new candis\n", numcandis);
-		candis.resize(numcandis);
+//    printf("got %d new candis\n", numcandis);
+    candis.resize(numcandis);
 		primeCount += numcandis;
 		if(numcandis)
 			memcpy(&candis[0], final.info._hostData, numcandis*sizeof(fermat_t));
@@ -706,7 +707,6 @@ void PrimeMiner::Mining(void *ctx, void *pipe) {
 				/*printf("candi %d: hashid=%d index=%d origin=%d type=%d length=%d\n",
 						i, candi.hashid, candi.index, candi.origin, candi.type, chainlength);*/
 				if(chainlength >= block.minshare()){
-					
 					mpz_class sharemulti = hash.primorial * multi;
 					share.set_hash(hash.hash.GetHex());
 					share.set_merkle(work.merkle());

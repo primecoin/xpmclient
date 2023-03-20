@@ -733,6 +733,7 @@ void cudaSieveTestBenchmark(CUfunction *kernels,
 
   CUDA_SAFE_CALL(hashBuf.copyToDevice());
 
+  unsigned MSO = 1024 * mConfig.STRIPES / 2;
   for(int sieveIdx = 0; sieveIdx < 64; ++sieveIdx) {
     for (int pipelineIdx = 0; pipelineIdx < FERMAT_PIPELINES; pipelineIdx++)
       CUDA_SAFE_CALL(sieveBuffers[sieveIdx][pipelineIdx].init(MSO, false));

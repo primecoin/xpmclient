@@ -22,7 +22,6 @@
 
 #define PW 512        // Pipeline width (number of hashes to store)
 #define SW 16         // maximum number of sieves in one iteration
-#define MSO 128*1024  // max sieve output
 #define MFS 2*SW*MSO  // max fermat size
 
 const unsigned maxHashPrimorial = 16;
