@@ -51,9 +51,9 @@ __global__ void sieve(uint32_t *gsieve_all,
     pos += __umul24((uint32_t)(fentry * fiprime), prime);
       pos -= entry;
     pos += ((int)pos < 0 ? prime : 0);
-#if STRIPES > 224
     pos += ((int)pos < 0 ? prime : 0);
-#endif
+    pos -= (pos >= prime ? prime : 0);
+    pos -= (pos >= prime ? prime : 0);
 
     pos += __umul24(lpoff, prime);
 
@@ -142,9 +142,9 @@ __global__ void sieve(uint32_t *gsieve_all,
     pos += __umul24((uint32_t)(fentry * fiprime), prime);
       pos -= entry;
     pos += ((int)pos < 0 ? prime : 0);
-#if STRIPES > 224
     pos += ((int)pos < 0 ? prime : 0);
-#endif
+    pos -= (pos >= prime ? prime : 0);
+    pos -= (pos >= prime ? prime : 0);
     
     uint32_t index = pos >> 5;
     
@@ -215,9 +215,9 @@ __global__ void sieve(uint32_t *gsieve_all,
     pos += __umul24((uint32_t)(fentry * fiprime), prime);
       pos -= entry;
     pos += ((int)pos < 0 ? prime : 0);
-#if STRIPES > 224
     pos += ((int)pos < 0 ? prime : 0);
-#endif
+    pos -= (pos >= prime ? prime : 0);
+    pos -= (pos >= prime ? prime : 0);
 
     uint32_t index = pos >> 5;
     if(index < SIZE)
