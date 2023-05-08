@@ -28,11 +28,11 @@ target = "auto";
 
 # Sieve size in stripes (1 stripe = 16384 bits)
 # Big sieve size gives more candidates with less prime probability
-sieveSize = "210";
+sieveSize = "630";
 
 # Weave depth (primes number count using by sieve)
 # Big weave depth increases prime probability, but sieve generate less candidates
-weaveDepth = "65536";
+weaveDepth = "45056";
 
 # Sieve layers number, optimal value is target*2; default = auto (target*2)
 width = "auto";

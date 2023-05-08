@@ -1,14 +1,14 @@
 #!/bin/bash
 set -e
-VERSION="10.5-beta3"
+VERSION="10.5-beta4"
 
 
-CUDA10_INSTALLER="cuda_11.3.0_465.89_win10.exe"
+CUDA10_INSTALLER="cuda_11.8.0_522.06_windows.exe"
 
 if docker inspect --type=image xpmclient-$VERSION > /dev/null 2> /dev/null; then
   echo "xpmclient-$VERSION image already exists"
 else
-  echo "FROM nvidia/cuda:11.3.0-devel-ubuntu18.04" > xpmclient.Dockerfile
+  echo "FROM nvidia/cuda:11.8.0-devel-ubuntu18.04" > xpmclient.Dockerfile
   echo "ENV DEBIAN_FRONTEND=noninteractive" >> xpmclient.Dockerfile
 
   # For debugging purposes, use apt-cacher-ng at localhost
