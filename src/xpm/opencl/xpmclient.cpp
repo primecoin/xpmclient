@@ -26,6 +26,7 @@
 
 cl_platform_id gPlatform = 0;
 
+std::vector<unsigned> gPrimes;
 std::vector<unsigned> gPrimes2;
 
 double GetPrimeDifficulty(unsigned int nBits)
@@ -817,18 +818,37 @@ bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adju
   cl_context gContext[64] = {nullptr};
   openclPrograms gPrograms[64] = {};
   
-	_cfg = cfg;
-	
-	{
-		int np = sizeof(gPrimes)/sizeof(unsigned);
-		gPrimes2.resize(np*2);
-		for(int i = 0; i < np; ++i){
-			unsigned prime = gPrimes[i];
-			cl_float fiprime = 1.f / cl_float(prime);
-			gPrimes2[i*2] = prime;
-			memcpy(&gPrimes2[i*2+1], &fiprime, sizeof(cl_float));
-		}
-	}
+  _cfg = cfg;
+
+  unsigned clKernelPCount = cfg->lookupInt("", "weaveDepth", 40960);
+  unsigned maxPrimesNum = clKernelPCount + 256;
+  {
+    unsigned primeTableLimit = maxPrimesNum * (log(maxPrimesNum) / log(2));
+    std::vector<bool> vfComposite(primeTableLimit, false);
+    for (unsigned int nFactor = 2; nFactor * nFactor < primeTableLimit; nFactor++) {
+      if (vfComposite[nFactor])
+        continue;
+      for (unsigned int nComposite = nFactor * nFactor; nComposite < primeTableLimit; nComposite += nFactor)
+        vfComposite[nComposite] = true;
+    }
+
+    unsigned primesNum = 0;
+    for (unsigned int n = 2; n < primeTableLimit && primesNum < maxPrimesNum; n++) {
+      if (!vfComposite[n])
+        gPrimes.push_back(n);
+    }
+  }
+
+  {
+    int np = gPrimes.size();
+    gPrimes2.resize(np*2);
+    for(int i = 0; i < np; ++i){
+      unsigned prime = gPrimes[i];
+      float fiprime = 1.f / float(prime);
+      gPrimes2[i*2] = prime;
+      memcpy(&gPrimes2[i*2+1], &fiprime, sizeof(float));
+    }
+  }
 	
   constexpr unsigned clKernelLSize = 256;
   constexpr unsigned clKernelLSizeLog2 = 8;
@@ -877,7 +897,6 @@ bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adju
 	}
 	
   unsigned clKernelStripes = cfg->lookupInt("", "sieveSize", 420);
-  unsigned clKernelPCount = cfg->lookupInt("", "weaveDepth", 40960);
   unsigned clKernelWindowSize = cfg->lookupInt("", "windowSize", 4096);
 
 	unsigned multiplierSizeLimits[3] = {26, 33, 36};
@@ -1121,7 +1140,7 @@ bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adju
     config << "#define LIMIT13 " << kernelConfig.LIMIT13 << '\n';
     config << "#define LIMIT14 " << kernelConfig.LIMIT14 << '\n';
     config << "#define LIMIT15 " << kernelConfig.LIMIT15 << '\n';
-    dumpSieveConstants(clKernelPCount, clKernelLSize, clKernelWindowSize*32, gPrimes+13, config, false);
+    dumpSieveConstants(clKernelPCount, clKernelLSize, clKernelWindowSize*32, &gPrimes[13], config, false);
   }
 
   // generate kernel configuration file for GCN kernels
@@ -1137,7 +1156,7 @@ bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adju
     config << "LIMIT13 = " << kernelConfig.LIMIT13 << '\n';
     config << "LIMIT14 = " << kernelConfig.LIMIT14 << '\n';
     config << "LIMIT15 = " << kernelConfig.LIMIT15 << '\n';
-    dumpSieveConstants(clKernelPCount, clKernelLSize, clKernelWindowSize*32, gPrimes+13, config, true);
+    dumpSieveConstants(clKernelPCount, clKernelLSize, clKernelWindowSize*32, &gPrimes[13], config, true);
   }
 
   // Include directories search

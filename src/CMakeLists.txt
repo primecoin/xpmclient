@@ -119,7 +119,6 @@ add_executable(xpmclient
   loguru.cpp
   opencl.cpp
   prime.cpp
-  primes.cpp
   sha256.cpp
   zmqextras.cpp
   xpm/opencl/xpmclient.cpp
@@ -163,7 +162,6 @@ if (CUDA_FOUND)
     cudautil.cpp
     loguru.cpp
     prime.cpp
-    primes.cpp
     sha256.cpp
     zmqextras.cpp
     xpm/cuda/xpmclient.cpp

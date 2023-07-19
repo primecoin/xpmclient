@@ -27,6 +27,7 @@ extern "C" {
 
 #include <math.h>
 
+std::vector<unsigned> gPrimes;
 std::vector<unsigned> gPrimes2;
 
 double GetPrimeDifficulty(unsigned int nBits)
@@ -798,10 +799,29 @@ void XPMClient::dumpSieveConstants(unsigned weaveDepth,
 }
 
 bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adjustedKernelTarget) {
-	_cfg = cfg;
-	
+  _cfg = cfg;
+
+  unsigned clKernelPCount = cfg->lookupInt("", "weaveDepth", 40960);
+  unsigned maxPrimesNum = clKernelPCount + 256;
+  {
+    unsigned primeTableLimit = maxPrimesNum * (log(maxPrimesNum) / log(2));
+    std::vector<bool> vfComposite(primeTableLimit, false);
+    for (unsigned int nFactor = 2; nFactor * nFactor < primeTableLimit; nFactor++) {
+      if (vfComposite[nFactor])
+        continue;
+      for (unsigned int nComposite = nFactor * nFactor; nComposite < primeTableLimit; nComposite += nFactor)
+        vfComposite[nComposite] = true;
+    }
+
+    unsigned primesNum = 0;
+    for (unsigned int n = 2; n < primeTableLimit && primesNum < maxPrimesNum; n++) {
+      if (!vfComposite[n])
+        gPrimes.push_back(n);
+    }
+  }
+
 	{
-		int np = sizeof(gPrimes)/sizeof(unsigned);
+    int np = gPrimes.size();
 		gPrimes2.resize(np*2);
 		for(int i = 0; i < np; ++i){
 			unsigned prime = gPrimes[i];
@@ -845,7 +865,6 @@ bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adju
 	}
 	
   unsigned clKernelStripes = cfg->lookupInt("", "sieveSize", 420);
-  unsigned clKernelPCount = cfg->lookupInt("", "weaveDepth", 40960);
   unsigned clKernelWindowSize = cfg->lookupInt("", "windowSize", 4096);
 
 	unsigned multiplierSizeLimits[3] = {26, 33, 36};
@@ -937,7 +956,7 @@ bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adju
     config << "#define LIMIT13 " << multiplierSizeLimits[0] << '\n';
     config << "#define LIMIT14 " << multiplierSizeLimits[1] << '\n';
     config << "#define LIMIT15 " << multiplierSizeLimits[2] << '\n';    
-    dumpSieveConstants(clKernelPCount, clKernelLSize, clKernelWindowSize*32, gPrimes+13, config);
+    dumpSieveConstants(clKernelPCount, clKernelLSize, clKernelWindowSize*32, &gPrimes[13], config);
   }
   
   std::string arguments = cfg->lookupString("", "compilerFlags", "");

@@ -14,6 +14,8 @@
 #include <math.h> 
 #include <set>
 
+extern std::vector<unsigned> gPrimes;
+
 enum CUDAKernels {
   CUDAKernelGenConfig = 0,
   CUDAKernelSquareBenchmark320,
@@ -832,7 +834,7 @@ void cudaSieveTestBenchmark(CUfunction *kernels,
       
       std::set<mpz_class> multipliers;
       unsigned invalidCount = 0;
-      sieveResultsTest(gPrimes,
+      sieveResultsTest(&gPrimes[0],
                        hashes.get(hid).shash,
                        (uint8_t*)sieveBuf[0]._hostData,
                        (uint8_t*)sieveBuf[1]._hostData,

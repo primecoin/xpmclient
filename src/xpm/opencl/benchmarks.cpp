@@ -15,6 +15,8 @@
 #include <math.h> 
 #include <set>
 
+extern std::vector<unsigned> gPrimes;
+
 const unsigned GroupSize = 256;
 const unsigned MulOpsNum = 512;
 const unsigned WindowSize = 7;
@@ -1461,7 +1463,7 @@ void sieveTestBenchmark(cl_context context,
       
       std::set<mpz_class> multipliers;
       unsigned invalidCount = 0;
-      sieveResultsTest(gPrimes,
+      sieveResultsTest(&gPrimes[0],
                        hashes.get(hid).shash,
                        (uint8_t*)sieveBuf[0].HostData,
                        (uint8_t*)sieveBuf[1].HostData,

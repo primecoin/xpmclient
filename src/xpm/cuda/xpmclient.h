@@ -25,7 +25,6 @@
 
 const unsigned maxHashPrimorial = 16;
 
-extern unsigned gPrimes[96*1024];
 extern std::vector<unsigned> gPrimes2;
 
 struct stats_t {
