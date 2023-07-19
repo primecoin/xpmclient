@@ -792,14 +792,15 @@ void XPMClient::dumpSieveConstants(unsigned weaveDepth,
                                    std::ostream &file,
                                    bool isGCN)
 {
-  unsigned ranges[3] = {0, 0, 0};
+  unsigned totalRounds = weaveDepth/threadsNum;
+  unsigned ranges[3] = {totalRounds, totalRounds, totalRounds};
   for (unsigned i = 0; i < weaveDepth/threadsNum; i++) {
     unsigned prime = primes[i*threadsNum];
-    if (ranges[0] == 0 && windowSize/prime <= 2)
+    if (ranges[0] == totalRounds && windowSize/prime <= 2)
       ranges[0] = i;
-    if (ranges[1] == 0 && windowSize/prime <= 1)
+    if (ranges[1] == totalRounds && windowSize/prime <= 1)
       ranges[1] = i;
-    if (ranges[2] == 0 && windowSize/prime == 0)
+    if (ranges[2] == totalRounds && windowSize/prime == 0)
       ranges[2] = i;
   }
   

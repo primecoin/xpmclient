@@ -20,7 +20,7 @@ constexpr unsigned int poolMinorVersionRequired = 3;
 std::string gClientName;
 unsigned gClientID;
 unsigned gInstanceID;
-const unsigned gClientVersion = 11;
+const unsigned gClientVersion = 1006;
 
 void* gCtx = 0;
 static void* gFrontend = 0;
@@ -393,8 +393,8 @@ int main(int argc, char **argv)
 	srand(gInstanceID);
 	
 	std::string frontHost;
-	unsigned frontPort;
-	
+  unsigned frontPort;
+  unsigned weaveDepth;
 	Configuration* cfg = Configuration::create();
 	try{
 		cfg->parse("config.txt");
@@ -402,6 +402,7 @@ int main(int argc, char **argv)
 		frontPort = cfg->lookupInt("", "port", 6666);
 		gAddr = cfg->lookupString("", "address", "");
 		gClientName = cfg->lookupString("", "name", gClientName.c_str());
+    weaveDepth = cfg->lookupInt("", "weaveDepth", 40960);
 	}catch(const ConfigurationException& ex){
     LOG_F(ERROR, "%s\n", ex.c_str());
 		exit(EXIT_FAILURE);
@@ -410,7 +411,7 @@ int main(int argc, char **argv)
 	if(!gClientName.size())
 		gClientName = sysinfo::GetClientName();
 	
-  LOG_F(INFO, "xpmclient-10.3");
+  LOG_F(INFO, "xpmclient-%u.%u", gClientVersion / 100, gClientVersion % 100);
   LOG_F(INFO, "ClientName = '%s'  ClientID = %u  InstanceID = %u", gClientName.c_str(), gClientID, gInstanceID);
   LOG_F(INFO, "Address = '%s'", gAddr.c_str());
 	
@@ -472,6 +473,13 @@ int main(int argc, char **argv)
                 if (!versionCompatible)
                   LOG_F(ERROR, "Pool uses too old protocol version (%u.%u or higher required)", poolMajorVersionRequired, poolMinorVersionRequired);
                 if (ConnectBitcoin() && ConnectSignals()) {
+                  // set config
+                  proto::Request req;
+                  req.set_type(proto::Request::SETCONFIG);
+                  req.set_reqid(++gNextReqID);
+                  req.set_weavedepth(weaveDepth);
+                  Send(req, gServer);
+
                   frontendConnected = true;
                 }
               } else {
