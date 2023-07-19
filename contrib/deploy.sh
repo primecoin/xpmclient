@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-VERSION="10.5-beta4"
+VERSION="10.6"
 
 
 CUDA10_INSTALLER="cuda_11.8.0_522.06_windows.exe"
