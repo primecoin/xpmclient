@@ -449,7 +449,7 @@ void cudaHashmodBenchmark(CUfunction *kernels,
       uint8_t *pHeader = (uint8_t*)&blockheader;
       for (unsigned i = 0; i < sizeof(blockheader); i++)
         pHeader[i] = rand32();
-      blockheader.version = PrimeMiner::block_t::CURRENT_VERSION;
+      blockheader.version = 2;
       blockheader.nonce = 1;  
       precalcSHA256(&blockheader, hashmod.midstate._hostData, &precalcData);
     }    
@@ -638,7 +638,7 @@ void cudaSieveTestBenchmark(CUfunction *kernels,
       uint8_t *pHeader = (uint8_t*)&blockheader;
       for (unsigned i = 0; i < sizeof(blockheader); i++)
         pHeader[i] = rand();
-      blockheader.version = PrimeMiner::block_t::CURRENT_VERSION;
+      blockheader.version = 2;
       blockheader.nonce = 1;
       precalcSHA256(&blockheader, hashmod.midstate._hostData, &precalcData);
     }

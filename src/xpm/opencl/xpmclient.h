@@ -137,16 +137,12 @@ class PrimeMiner {
 public:
 	
 	struct block_t {
-		
-		static const int CURRENT_VERSION = 2;
-		
 		int version;
 		uint256 hashPrevBlock;
 		uint256 hashMerkleRoot;
 		unsigned int time;
 		unsigned int bits;
 		unsigned int nonce;
-		
 	};
 	
 	struct search_t {

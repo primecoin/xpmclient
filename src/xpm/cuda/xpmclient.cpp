@@ -431,9 +431,9 @@ void PrimeMiner::Mining(void *ctx, void *pipe) {
           for (int pipelineIdx = 0; pipelineIdx < FERMAT_PIPELINES; pipelineIdx++)
             (candidatesCountBuffers[sieveIdx][instIdx])[pipelineIdx] = 0;
         }
-      }      
-			
-			blockheader.version = block_t::CURRENT_VERSION;
+      }
+
+      blockheader.version = work.has_version() ? work.version() : 2;
 			blockheader.hashPrevBlock.SetHex(block.hash());
 			blockheader.hashMerkleRoot.SetHex(work.merkle());
 			blockheader.time = work.time() + mID;

@@ -1053,7 +1053,7 @@ void hashmodBenchmark(cl_context context,
       uint8_t *pHeader = (uint8_t*)&blockheader;
       for (unsigned i = 0; i < sizeof(blockheader); i++)
         pHeader[i] = rand32();
-      blockheader.version = PrimeMiner::block_t::CURRENT_VERSION;
+      blockheader.version = 2;
       blockheader.nonce = 1;  
 
       precalcSHA256(&blockheader, hashmod.midstate.HostData, &data);
@@ -1269,7 +1269,7 @@ void sieveTestBenchmark(cl_context context,
     uint8_t *pHeader = (uint8_t*)&blockheader;
     for (unsigned i = 0; i < sizeof(blockheader); i++)
       pHeader[i] = rand();
-    blockheader.version = PrimeMiner::block_t::CURRENT_VERSION;
+    blockheader.version = 2;
     blockheader.nonce = 1;    
     precalcSHA256(&blockheader, hashmod.midstate.HostData, &data);
     OCL(hashmod.midstate.copyToDevice(queue));

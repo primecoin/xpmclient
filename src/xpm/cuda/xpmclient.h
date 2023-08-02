@@ -124,27 +124,20 @@ public:
 class PrimeMiner {
 public:
 	
-	struct block_t {
-		
-		static const int CURRENT_VERSION = 2;
-		
+	struct block_t {	
 		int version;
 		uint256 hashPrevBlock;
 		uint256 hashMerkleRoot;
 		unsigned int time;
 		unsigned int bits;
 		unsigned int nonce;
-		
 	};
   
 	struct search_t {
-		
 		cudaBuffer<uint32_t> midstate;
 		cudaBuffer<uint32_t> found;
     cudaBuffer<uint32_t> primorialBitField;
 		cudaBuffer<uint32_t> count;   
-    
-		
 	};  
 	
 	struct hash_t {

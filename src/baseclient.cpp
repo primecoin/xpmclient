@@ -20,7 +20,7 @@ constexpr unsigned int poolMinorVersionRequired = 3;
 std::string gClientName;
 unsigned gClientID;
 unsigned gInstanceID;
-const unsigned gClientVersion = 1006;
+const unsigned gClientVersion = 1061;
 
 void* gCtx = 0;
 static void* gFrontend = 0;
@@ -409,9 +409,9 @@ int main(int argc, char **argv)
 	}
 	
 	if(!gClientName.size())
-		gClientName = sysinfo::GetClientName();
-	
-  LOG_F(INFO, "xpmclient-%u.%u", gClientVersion / 100, gClientVersion % 100);
+    gClientName = sysinfo::GetClientName();
+
+  LOG_F(INFO, "xpmclient-%u.%u.%u", gClientVersion / 100, (gClientVersion % 100) / 10, (gClientVersion % 100) % 10);
   LOG_F(INFO, "ClientName = '%s'  ClientID = %u  InstanceID = %u", gClientName.c_str(), gClientID, gInstanceID);
   LOG_F(INFO, "Address = '%s'", gAddr.c_str());
 	
