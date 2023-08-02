@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-VERSION="10.6"
+VERSION="10.6.1"
 
 # Linux static build
 
