@@ -14,7 +14,7 @@
 #include "benchmarks.h"
 #include "codegen/generic.h"
 #include "codegen/gcn.h"
-
+#include "getblocktemplate.h"
 #include "loguru.hpp"
 
 #include <fstream>
@@ -23,6 +23,11 @@
 #include <chrono>
 
 #include <math.h>
+
+static const char *gWallet   = 0;
+static const char *gUrl      = "127.0.0.1:9912";
+static const char *gUserName = 0;
+static const char *gPassword = 0;
 
 cl_platform_id gPlatform = 0;
 
@@ -212,22 +217,7 @@ void PrimeMiner::FermatDispatch(pipeline_t &fermat,
   }
 }
 
-void PrimeMiner::Mining(void *ctx, void *pipe) {
-	void* blocksub = zmq_socket(ctx, ZMQ_SUB);
-	void* worksub = zmq_socket(ctx, ZMQ_SUB);
-	void* statspush = zmq_socket(ctx, ZMQ_PUSH);
-	void* sharepush = zmq_socket(ctx, ZMQ_PUSH);  
-	
-	zmq_connect(blocksub, "inproc://blocks");
-	zmq_connect(worksub, "inproc://work");
-	zmq_connect(statspush, "inproc://stats");
-	zmq_connect(sharepush, "inproc://shares");        
-
-	{
-		const char one[2] = {1, 0};
-		zmq_setsockopt (blocksub, ZMQ_SUBSCRIBE, one, 1);
-		zmq_setsockopt (worksub, ZMQ_SUBSCRIBE, one, 1);
-	}
+void PrimeMiner::Mining(void *ctx, void *pipe) {      
 	
 	proto::Block block;
 	proto::Work work;
@@ -358,16 +348,10 @@ void PrimeMiner::Mining(void *ctx, void *pipe) {
 	OCL(clSetKernelArg(mFermatCheck, 2, sizeof(cl_mem), &final.info.DeviceData));
 	OCL(clSetKernelArg(mFermatCheck, 3, sizeof(cl_mem), &final.count.DeviceData));
 	OCL(clSetKernelArg(mFermatCheck, 6, sizeof(unsigned), &mDepth));
-	
-  czmq_signal(pipe);
-  czmq_poll(pipe, -1);
+
 
 	bool run = true;
 	while(run){
-    if(czmq_poll(pipe, 0)) {
-      czmq_wait(pipe);
-      czmq_wait(pipe);
-    }
 
 		{
 			time_t currtime = time(0);
@@ -388,26 +372,6 @@ void PrimeMiner::Mining(void *ctx, void *pipe) {
 		stats.primeprob = pow(double(primeCount)/double(fermatCount), 1./mDepth)
 				- 0.0003 * (double(mConfig.TARGET-1)/2. - double(mDepth-1)/2.);
 		stats.cpd = 24.*3600. * double(stats.fps) * pow(stats.primeprob, mConfig.TARGET);
-		
-		// get work
-		bool reset = false;
-		{
-			bool getwork = true;
-			while(getwork && run){
-				if(czmq_poll(worksub, 0) || work.height() < block.height()){
-					run = ReceivePub(work, worksub);
-					reset = true;
-				}
-				
-				getwork = false;
-				if(czmq_poll(blocksub, 0) || work.height() > block.height()){
-					run = ReceivePub(block, blocksub);
-					getwork = true;
-				}
-			}
-		}
-		if(!run)
-			break;
 		
 		// reset if new work
 		if(reset){
@@ -718,12 +682,6 @@ void PrimeMiner::Mining(void *ctx, void *pipe) {
 	  clReleaseMemObject(primeBuf[i]);
 	  clReleaseMemObject(primeBuf2[i]);
   }
-	
-	zmq_close(blocksub);
-	zmq_close(worksub);
-	zmq_close(statspush);
-	zmq_close(sharepush);
-	czmq_signal(pipe);
 }
 
 XPMClient::~XPMClient() {
@@ -1322,7 +1280,20 @@ bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adju
 
 void XPMClient::NotifyBlock(const proto::Block& block) {
 	
-	SendPub(block, mBlockPub);
+	 // Submit blocks using node communication
+   blktemplate_t *blockTemplate = nullptr;
+   unsigned dataId;
+
+   GetBlockTemplateContext gbp(_log, gUrl, gUserName, gPassword, gWallet, 4, 1, _extraNonce);
+   blockTemplate = gbp.get(0, blockTemplate, &dataId, nullptr);
+
+   PrimecoinBlockHeader blockHeader;
+   blockHeader.nonce = 1;
+   blockHeader.time = block.time();
+   blockHeader.bits = block.bits();
+   
+   SubmitContext submitContext(_log, gUrl, gUserName, gPassword);
+   submitContext.submitBlock(blockTemplate, blockHeader, dataId);
 	
 }
 
@@ -1331,8 +1302,6 @@ bool XPMClient::TakeWork(const proto::Work& work) {
 	
 	const double TargetIncrease = 0.994;
 	const double TargetDecrease = 0.0061;
-	
-	SendPub(work, mWorkPub);
 	
 	if (!clKernelTargetAutoAdjust || work.bits() == 0)
 		return true;
@@ -1365,7 +1334,6 @@ bool XPMClient::TakeWork(const proto::Work& work) {
 				mWorkers[i].first->MakeExit = true;
         if(czmq_poll(mWorkers[i].second, 8000)) {
 					delete mWorkers[i].first;
-          zmq_close(mWorkers[i].second);
         }
 			}
 		}
@@ -1378,8 +1346,24 @@ bool XPMClient::TakeWork(const proto::Work& work) {
     Toggle();
 		return false;
 	} else {
-		return true;
-	}
+    // Use node communication to obtain a job template and check whether a new job template exists
+    blktemplate_t *blockTemplate = nullptr;
+    unsigned dataId;
+    bool hasChanged = false;
+    GetBlockTemplateContext gbp(_log, gUrl, gUserName, gPassword, gWallet, 4, 1, _extraNonce);
+    blockTemplate = gbp.get(0, blockTemplate, &dataId, &hasChanged);
+    
+    if (hasChanged) {
+
+        blockheader.nonce = 1;
+        blockheader.time = work.time() + mID;
+        blockheader.bits = work.bits();
+        
+        SubmitContext submitContext(_log, gUrl, gUserName, gPassword);
+        submitContext.submitBlock(blockTemplate, blockheader, dataId);
+    }
+    return true;
+}
 }
 
 
