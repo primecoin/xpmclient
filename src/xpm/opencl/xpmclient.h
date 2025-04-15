@@ -257,8 +257,6 @@ public:
 	virtual ~XPMClient();
   
 	bool Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adjustedKernelTarget = 0);
-	void NotifyBlock(const proto::Block& block);
-	bool TakeWork(const proto::Work& work);
 	int GetStats(proto::ClientStats& stats);
 	void Toggle();
 	
