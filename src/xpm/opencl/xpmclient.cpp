@@ -1379,9 +1379,9 @@
 	   
 		 PrimeMiner* miner = new PrimeMiner(i, gpus.size(), sievePerRound[i], depth, clKernelLSize);
 		 miner->Initialize(gContext[i], programs, gpus[i]);
-		 void *pipe = czmq_thread_fork(mCtx, &PrimeMiner::InvokeMining, miner);
+		 std::thread(&PrimeMiner::InvokeMining, miner, nullptr, nullptr).detach();
 		 worker.first = miner;
-		 worker.second = pipe;
+		 worker.second = nullptr;
 	   } else {
 		 LOG_F(ERROR, "GPU %d: failed to load kernel", i);
 		 worker.first = 0;
