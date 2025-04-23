@@ -14,6 +14,8 @@
 #include "benchmarks.h"
 #include "codegen/generic.h"
 #include "codegen/gcn.h"
+#include "getblocktemplate.h"
+#include "primecoin.h"
 
 #include "loguru.hpp"
 
@@ -23,8 +25,25 @@
 #include <chrono>
 
 #include <math.h>
+#include <openssl/bn.h>
+#include <openssl/sha.h>
+
+void _blkmk_bin2hex(char *out, void *data, size_t datasz) {
+  unsigned char *datac = (unsigned char *)data;
+  static char hex[] = "0123456789abcdef";
+  out[datasz * 2] = '\0';
+  for (size_t i = 0; i < datasz; ++i)
+  {
+    int j = datasz -1 - i;
+    out[ j*2   ] = hex[datac[i] >> 4];
+    out[(j*2)+1] = hex[datac[i] & 15];
+  }
+
+}
 
 cl_platform_id gPlatform = 0;
+int gThreadsNum = 1;
+int extraNonce = 0;
 
 std::vector<unsigned> gPrimes;
 std::vector<unsigned> gPrimes2;
@@ -129,11 +148,15 @@ bool PrimeMiner::Initialize(cl_context context, openclPrograms programs, cl_devi
 	return true;
 }
 
-void PrimeMiner::InvokeMining(void *args, void *ctx, void *pipe) {
+// void PrimeMiner::InvokeMining(void *args, void *ctx, void *pipe) {
 	
-	((PrimeMiner*)args)->Mining(ctx, pipe);
+// 	auto threadArgs = static_cast<ThreadArgs*>(args);
+//   auto miner = threadArgs->miner;
+//   auto gbp = threadArgs->gbp;
+//   auto submit = threadArgs->submit;
+//   miner->Mining(gbp, submit);
 	
-}
+// }
 
 void PrimeMiner::FermatInit(pipeline_t &fermat, unsigned mfs)
 {
@@ -212,33 +235,10 @@ void PrimeMiner::FermatDispatch(pipeline_t &fermat,
   }
 }
 
-void PrimeMiner::Mining(void *ctx, void *pipe) {
-	void* blocksub = zmq_socket(ctx, ZMQ_SUB);
-	void* worksub = zmq_socket(ctx, ZMQ_SUB);
-	void* statspush = zmq_socket(ctx, ZMQ_PUSH);
-	void* sharepush = zmq_socket(ctx, ZMQ_PUSH);  
-	
-	zmq_connect(blocksub, "inproc://blocks");
-	zmq_connect(worksub, "inproc://work");
-	zmq_connect(statspush, "inproc://stats");
-	zmq_connect(sharepush, "inproc://shares");        
-
-	{
-		const char one[2] = {1, 0};
-		zmq_setsockopt (blocksub, ZMQ_SUBSCRIBE, one, 1);
-		zmq_setsockopt (worksub, ZMQ_SUBSCRIBE, one, 1);
-	}
-	
-	proto::Block block;
-	proto::Work work;
-	proto::Share share;
-	
-	block.set_height(1);
-	work.set_height(0);
-	
-	share.set_addr(gAddr);
-	share.set_name(gClientName);
-	share.set_clientid(gClientID);
+void PrimeMiner::Mining(GetBlockTemplateContext* gbp, SubmitContext* submit) {
+  unsigned int dataId;
+  bool hasChanged;
+  blktemplate_t *workTemplate = 0;
 	
 	stats_t stats;
 	stats.id = mID;
@@ -359,31 +359,23 @@ void PrimeMiner::Mining(void *ctx, void *pipe) {
 	OCL(clSetKernelArg(mFermatCheck, 3, sizeof(cl_mem), &final.count.DeviceData));
 	OCL(clSetKernelArg(mFermatCheck, 6, sizeof(unsigned), &mDepth));
 	
-  czmq_signal(pipe);
-  czmq_poll(pipe, -1);
 
 	bool run = true;
-	while(run){
-    if(czmq_poll(pipe, 0)) {
-      czmq_wait(pipe);
-      czmq_wait(pipe);
+	while(run) {
+    {
+      time_t currtime = time(0);
+      time_t elapsed = currtime - time1;
+      if(elapsed > 11){                      
+        time1 = currtime;
+      }
+      
+      elapsed = currtime - time2;
+      if(elapsed > 15){
+        stats.fps = testCount / elapsed;
+        time2 = currtime;
+        testCount = 0;
+      }
     }
-
-		{
-			time_t currtime = time(0);
-			time_t elapsed = currtime - time1;
-			if(elapsed > 11){
- 				zmq_send(statspush, &stats, sizeof(stats), 0);                          
-				time1 = currtime;
-			}
-			
-			elapsed = currtime - time2;
-			if(elapsed > 15){
-				stats.fps = testCount / elapsed;
-				time2 = currtime;
-				testCount = 0;
-			}
-		}
 		
 		stats.primeprob = pow(double(primeCount)/double(fermatCount), 1./mDepth)
 				- 0.0003 * (double(mConfig.TARGET-1)/2. - double(mDepth-1)/2.);
@@ -392,18 +384,18 @@ void PrimeMiner::Mining(void *ctx, void *pipe) {
 		// get work
 		bool reset = false;
 		{
-			bool getwork = true;
-			while(getwork && run){
-				if(czmq_poll(worksub, 0) || work.height() < block.height()){
-					run = ReceivePub(work, worksub);
-					reset = true;
+			while ( !(workTemplate = gbp->get(0, workTemplate, &dataId, &hasChanged)) ) {
+				usleep(100);
+				if(MakeExit) {
+					run = false;
+					break;
 				}
-				
-				getwork = false;
-				if(czmq_poll(blocksub, 0) || work.height() > block.height()){
-					run = ReceivePub(block, blocksub);
-					getwork = true;
-				}
+			}
+			
+			if(workTemplate && hasChanged){
+				run = true;
+				reset = true;
+				LOG_F(INFO, "GPU %d: New work received, height=%d", mID, workTemplate->height);
 			}
 		}
 		if(!run)
@@ -428,13 +420,17 @@ void PrimeMiner::Mining(void *ctx, void *pipe) {
         }
       }
 			
-      blockheader.version = work.has_version() ? work.version() : 2;
-			blockheader.hashPrevBlock.SetHex(block.hash());
-			blockheader.hashMerkleRoot.SetHex(work.merkle());
-			blockheader.time = work.time() + mID;
-			blockheader.bits = work.bits();
-			blockheader.nonce = 1;
-			testParams.nBits = blockheader.bits;
+      printf("version is %u\n", workTemplate->version);
+      blockheader.version = workTemplate->version;
+      char blkhex[128];
+      _blkmk_bin2hex(blkhex, workTemplate->prevblk, 32);
+      blockheader.hashPrevBlock.SetHex(blkhex);
+      _blkmk_bin2hex(blkhex, workTemplate->_mrklroot, 32);
+      blockheader.hashMerkleRoot.SetHex(blkhex);
+      blockheader.time = workTemplate->curtime;
+      blockheader.bits = *(uint32_t*)workTemplate->diffbits;
+      blockheader.nonce = 1;
+      testParams.nBits = blockheader.bits;
 			
 			unsigned target = TargetGetLength(blockheader.bits);
       
@@ -662,25 +658,30 @@ void PrimeMiner::Mining(void *ctx, void *pipe) {
 				testParams.nCandidateType = candi.type;
         bool isblock = ProbablePrimeChainTestFast(chainorg, testParams, mDepth);
 				unsigned chainlength = TargetGetLength(testParams.nChainLength);
-				if(chainlength >= block.minshare()){
-					
-					mpz_class sharemulti = hash.primorial * multi;
-					share.set_hash(hash.hash.GetHex());
-					share.set_merkle(work.merkle());
-					share.set_time(hash.time);
-					share.set_bits(work.bits());
-					share.set_nonce(hash.nonce);
-					share.set_multi(sharemulti.get_str(16));
-					share.set_height(block.height());
-					share.set_length(chainlength);
-					share.set_chaintype(candi.type);
-					share.set_isblock(isblock);
+				if(chainlength >= TargetGetLength(blockheader.bits)){
+					printf("\ncandis[%d] = %s, chainlength %u\n", i, chainorg.get_str(10).c_str(), chainlength);
+          PrimecoinBlockHeader work;
+          work.version = blockheader.version;
+          char blkhex[128];
+          _blkmk_bin2hex(blkhex, workTemplate->prevblk, 32);
+          memcpy(work.hashPrevBlock, workTemplate->prevblk, 32);
+          memcpy(work.hashMerkleRoot, workTemplate->_mrklroot, 32);
+          work.time = hash.time;
+          work.bits = blockheader.bits;
+          work.nonce = hash.nonce;
+          uint8_t buffer[256];
+          BIGNUM *xxx = 0;
+          mpz_class targetMultiplier = hash.primorial * multi;
+          BN_dec2bn(&xxx, targetMultiplier.get_str().c_str());
+          BN_bn2mpi(xxx, buffer);
+          work.multiplier[0] = buffer[3];
+          std::reverse_copy(buffer+4, buffer+4+buffer[3], work.multiplier+1);
+          submit->submitBlock(workTemplate, work, dataId);
+          std::string chainName = GetPrimeChainName(testParams.nCandidateType,testParams.nChainLength);
 					
           LOG_F(1, "GPU %d found share: %d-ch type %d", mID, chainlength, candi.type+1);
 					if(isblock)
             LOG_F(1, "GPU %d found BLOCK!", mID);
-					
-					Send(share, sharepush);
 					
         }else if(chainlength < mDepth){
           LOG_F(WARNING, "ProbablePrimeChainTestFast %ubits %d/%d", (unsigned)mpz_sizeinbase(chainorg.get_mpz_t(), 2), chainlength, mDepth);
@@ -718,12 +719,7 @@ void PrimeMiner::Mining(void *ctx, void *pipe) {
 	  clReleaseMemObject(primeBuf[i]);
 	  clReleaseMemObject(primeBuf2[i]);
   }
-	
-	zmq_close(blocksub);
-	zmq_close(worksub);
-	zmq_close(statspush);
-	zmq_close(sharepush);
-	czmq_signal(pipe);
+
 }
 
 XPMClient::~XPMClient() {
@@ -734,10 +730,6 @@ XPMClient::~XPMClient() {
       if(czmq_poll(mWorkers[i].second, 8000))
 				delete mWorkers[i].first;
 		}
-
-	zmq_close(mBlockPub);
-	zmq_close(mWorkPub);
-	zmq_close(mStatsPull);
 	
 }
 
@@ -820,6 +812,11 @@ bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adju
   openclPrograms gPrograms[64] = {};
   
   _cfg = cfg;
+
+  const char* gWallet = cfg->lookupString("", "node_wallet", "");
+  const char* gUrl = cfg->lookupString("", "node_url", "http://127.0.0.1:8332");
+  const char* gUserName = cfg->lookupString("", "node_user", "user");
+  const char* gPassword = cfg->lookupString("", "node_pass", "pass");
 
   unsigned clKernelPCount = cfg->lookupInt("", "weaveDepth", 40960);
   unsigned maxPrimesNum = clKernelPCount + 256;
@@ -1291,6 +1288,9 @@ bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adju
     
     return false;
   } else {
+    GetBlockTemplateContext* getblock = new GetBlockTemplateContext(0, gUrl, gUserName, gPassword, gWallet, 4, gThreadsNum, extraNonce);
+    getblock->run();
+    SubmitContext *submit = new SubmitContext(0, gUrl, gUserName, gPassword);
     for(unsigned i = 0; i < gpus.size(); ++i) {
       char deviceName[128];
       clGetDeviceInfo(gpus[i], CL_DEVICE_NAME, sizeof(deviceName), deviceName, nullptr);
@@ -1300,11 +1300,9 @@ bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adju
       
         PrimeMiner* miner = new PrimeMiner(i, gpus.size(), sievePerRound[i], depth, clKernelLSize);
         miner->Initialize(gContext[i], programs, gpus[i]);
-        void *pipe = czmq_thread_fork(mCtx, &PrimeMiner::InvokeMining, miner);
-        czmq_wait(pipe);
-        czmq_signal(pipe);
+        miner->Mining(getblock, submit);
         worker.first = miner;
-        worker.second = pipe;
+        worker.second = nullptr;
       } else {
         LOG_F(ERROR, "GPU %d: failed to load kernel", i);
         worker.first = 0;
@@ -1319,68 +1317,6 @@ bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adju
 	return true;
 }
 
-
-void XPMClient::NotifyBlock(const proto::Block& block) {
-	
-	SendPub(block, mBlockPub);
-	
-}
-
-
-bool XPMClient::TakeWork(const proto::Work& work) {
-	
-	const double TargetIncrease = 0.994;
-	const double TargetDecrease = 0.0061;
-	
-	SendPub(work, mWorkPub);
-	
-	if (!clKernelTargetAutoAdjust || work.bits() == 0)
-		return true;
-	double difficulty = GetPrimeDifficulty(work.bits());
-
-	bool needReset = false;
-	for(unsigned i = 0; i < mWorkers.size(); ++i) {
-		PrimeMiner *miner = mWorkers[i].first;
-		double target = miner->getConfig().TARGET;
-		if (difficulty > target && difficulty-target >= TargetIncrease) {
-      LOG_F(WARNING, "Target with high difficulty detected, need increase miner target");
-			needReset = true;
-			break;
-		} else if (difficulty < target && target-difficulty >= TargetDecrease) {
-      LOG_F(WARNING, "Target with low difficulty detected, need decrease miner target");
-			needReset = true;
-			break;
-		}
-	}
-	
-	if (needReset) {
-		unsigned newTarget = TargetGetLength(work.bits());
-		if (difficulty - newTarget >= TargetIncrease)
-			newTarget++;
-    LOG_F(WARNING, "Rebuild miner kernels, adjust target to %u..", newTarget);
-		// Stop and destroy all workers
-		for(unsigned i = 0; i < mWorkers.size(); ++i) {
-      LOG_F(WARNING, "attempt to stop GPU %u ...", i);
-			if(mWorkers[i].first){
-				mWorkers[i].first->MakeExit = true;
-        if(czmq_poll(mWorkers[i].second, 8000)) {
-					delete mWorkers[i].first;
-          zmq_close(mWorkers[i].second);
-        }
-			}
-		}
-		
-		mWorkers.clear();
-		
-		// Build new kernels with adjusted target
-		mPaused = true;
-		Initialize(_cfg, false, newTarget);
-    Toggle();
-		return false;
-	} else {
-		return true;
-	}
-}
 
 
 int XPMClient::GetStats(proto::ClientStats& stats) {

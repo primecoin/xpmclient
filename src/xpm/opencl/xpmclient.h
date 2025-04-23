@@ -17,6 +17,7 @@
 #include "hwmon.h"
 #include "uint256.h"
 #include "sha256.h"
+#include "getblocktemplate.h"
 
 #define FERMAT_PIPELINES 2
 
@@ -194,6 +195,7 @@ public:
     info_t cunningham2[1];
   };
 	
+  void Mining(GetBlockTemplateContext* gbp, SubmitContext* submit);
 	
   PrimeMiner(unsigned id, unsigned threads, unsigned sievePerRound, unsigned depth, unsigned LSize);
 	~PrimeMiner();
@@ -219,7 +221,7 @@ private:
                       cl_kernel fermatKernel,
                       unsigned sievePerRound);
   
-	void Mining(void *ctx, void *pipe);
+
 	
 	unsigned mID;
 	unsigned mThreads;
@@ -257,8 +259,6 @@ public:
 	virtual ~XPMClient();
   
 	bool Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adjustedKernelTarget = 0);
-	void NotifyBlock(const proto::Block& block);
-	bool TakeWork(const proto::Work& work);
 	int GetStats(proto::ClientStats& stats);
 	void Toggle();
 	

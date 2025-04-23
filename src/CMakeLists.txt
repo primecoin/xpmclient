@@ -131,6 +131,9 @@ add_executable(xpmclient
 target_include_directories(xpmclient PUBLIC
   ${CMAKE_SOURCE_DIR}
   ${CMAKE_SOURCE_DIR}/xpm/opencl
+  ${CMAKE_SOURCE_DIR}/xpm/rpc/blkmaker
+  ${CMAKE_SOURCE_DIR}/xpm/rpc/common
+  ${CMAKE_SOURCE_DIR}/xpm/rpc/include
   ${CLRX_INCLUDE_DIRECTORIES}
 )
 
