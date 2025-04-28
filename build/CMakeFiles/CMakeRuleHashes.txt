@@ -1,2 +1,0 @@
-# Hashes of file build rules.
-7e9b7c015a6a7ce771f833ab6af23e76 protocol.pb.h

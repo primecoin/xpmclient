@@ -1,5 +1,0 @@
-/home/danjuan/addtest/xpmclient/build/CMakeFiles/rebuild_cache.dir
-/home/danjuan/addtest/xpmclient/build/CMakeFiles/edit_cache.dir
-/home/danjuan/addtest/xpmclient/build/CMakeFiles/xpmclient.dir
-/home/danjuan/addtest/xpmclient/build/CMakeFiles/blkmaker.dir
-/home/danjuan/addtest/xpmclient/build/CMakeFiles/config4cpp.dir
