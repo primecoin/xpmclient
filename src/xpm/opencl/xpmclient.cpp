@@ -23,6 +23,7 @@
 #include <chrono>
 
 #include <math.h>
+#include <thread>
 
 cl_platform_id gPlatform = 0;
 
@@ -816,6 +817,18 @@ void XPMClient::dumpSieveConstants(unsigned weaveDepth,
 }
 
 bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adjustedKernelTarget) {
+
+   std::string mode = cfg->lookupString("", "mode", "pool");
+    if (mode == "node") {
+        // node model
+        _node = std::make_unique<MiningNode>(cfg);
+        if (!_node->Start()) {
+            LOG_F(ERROR, "Failed to start mining node");
+            return false;
+        }
+        return true;
+    }
+
   cl_context gContext[64] = {nullptr};
   openclPrograms gPrograms[64] = {};
   
@@ -1524,4 +1537,95 @@ void XPMClient::Toggle()
   }
 
   mPaused = !mPaused;
+}
+
+MiningNode::MiningNode(Configuration* cfg) {
+    int cpuload = 1;
+    try { cpuload = cfg->lookupInt("", "cpuload", 1); }
+    catch (const config4cpp::ConfigurationException&) {}
+
+
+    std::string url = "127.0.0.1:9912";
+    try { url = cfg->lookupString("", "url", url.c_str()); }
+    catch (const config4cpp::ConfigurationException&) {}
+
+    std::string user;
+    try { user = cfg->lookupString("", "user"); }
+    catch (const ConfigurationException& ex) {}
+    std::string pass;
+    try { pass = cfg->lookupString("", "pass"); }
+    catch (const ConfigurationException& ex) {}
+
+    std::string wallet;
+    try {
+      wallet = cfg->lookupString("", "wallet");
+      if (wallet.empty()) throw std::runtime_error("wallet empty");
+    } catch (const ConfigurationException& ex) {
+      throw std::runtime_error("The wallet address must be provided");
+    }
+
+    // timeout、blocksNum（threadsNum）、extraNonce
+    unsigned timeout   = 4;
+    unsigned blocksNum = 1;
+    unsigned extraNonce = 0;
+    try { timeout   = cfg->lookupInt("", "timeout",   timeout);   } catch(const ConfigurationException& ex) {}
+    try { blocksNum = cfg->lookupInt("", "threadsNum", blocksNum); } catch(const ConfigurationException& ex) {}
+    try { extraNonce= cfg->lookupInt("", "extraNonce",extraNonce);} catch(const ConfigurationException& ex) {}
+
+    _gbtCtx    = new GetBlockTemplateContext(nullptr,
+                                             url.c_str(),
+                                             user.c_str(),
+                                             pass.c_str(),
+                                             wallet.c_str(),
+                                             timeout,
+                                             blocksNum,
+                                             extraNonce);
+    _submitCtx = new SubmitContext(nullptr,
+                                   url.c_str(),
+                                   user.c_str(),
+                                   pass.c_str());
+
+    // sievePerRound
+    unsigned sievePerRound = 5;
+    try {
+      StringVector v;
+      cfg->lookupList("", "sievePerRound", v);
+      if (v.length() > 0) sievePerRound = atoi(v[0]);
+    } catch(...) {}
+
+    int depth = 5 - cpuload;
+    depth = std::clamp(depth, 2, 5);
+
+    // LSize
+    unsigned lSize = 256;
+    try { lSize = cfg->lookupInt("", "lSize", lSize); } catch(...) {}
+
+    _miner = new PrimeMiner(
+      /* id= */          0,
+      /* threads= */     blocksNum,
+      /* sievePerRound=*/ sievePerRound,
+      /* depth= */       depth,
+      /* LSize= */       lSize
+    );
+}
+
+MiningNode::~MiningNode() {
+    delete _gbtCtx;
+    delete _submitCtx;
+    delete _miner;
+}
+
+bool MiningNode::Start() {
+    _gbtCtx->run();
+    try {
+        _thread = std::thread(&MiningNode::RunLoop, this);
+        _thread.detach();
+        return true;
+    } catch (const ConfigurationException& ex) {
+        return false;
+    }
+}
+
+void MiningNode::RunLoop() {
+    _miner->Mining(_gbtCtx, _submitCtx);
 }
