@@ -1,0 +1,2 @@
+/usr/bin/ar qc libblkmaker.a  CMakeFiles/blkmaker.dir/xpm/rpc/blkmaker/base58.c.o CMakeFiles/blkmaker.dir/xpm/rpc/blkmaker/blkmaker.c.o CMakeFiles/blkmaker.dir/xpm/rpc/blkmaker/blkmaker_jansson.c.o CMakeFiles/blkmaker.dir/xpm/rpc/blkmaker/blktemplate.c.o CMakeFiles/blkmaker.dir/xpm/rpc/blkmaker/hex.c.o
+/usr/bin/ranlib libblkmaker.a

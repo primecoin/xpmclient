@@ -1,6 +1,16 @@
 cmake_minimum_required(VERSION 3.0)
 project(xpmclient)
 
+include(TestBigEndian)
+test_big_endian(IS_BIGENDIAN)
+
+configure_file(
+  ${CMAKE_SOURCE_DIR}/xpm/rpc/include/config.h.in
+  ${CMAKE_BINARY_DIR}/config.h
+)
+
+include_directories(${CMAKE_BINARY_DIR})
+
 set (CMAKE_CXX_STANDARD 17)
 option(STATIC_BUILD "Build with static libraries on Linux")
 option(SANITIZER_ENABLED "Build with address sanitizer" OFF)
@@ -112,6 +122,15 @@ else()
   )
 endif()
 
+file(GLOB BLKMAKER_SOURCES
+  ${CMAKE_SOURCE_DIR}/xpm/rpc/blkmaker/*.c
+)
+add_library(blkmaker STATIC ${BLKMAKER_SOURCES})
+
+target_include_directories(blkmaker PUBLIC
+  ${CMAKE_SOURCE_DIR}/xpm/rpc/blkmaker
+)
+
 add_executable(xpmclient
   adl.cpp
   baseclient.cpp
@@ -125,6 +144,9 @@ add_executable(xpmclient
   xpm/opencl/benchmarks.cpp
   codegen/generic.cpp
   codegen/gcn.cpp
+  xpm/rpc/common/getblocktemplate.cpp
+  xpm/rpc/common/primecoin.cpp
+  xpm/rpc/common/system.cpp
   ${ProtoSources}
 )
 
@@ -141,6 +163,11 @@ target_link_libraries(xpmclient
   ${LIBRARIES}
   ${OpenCL_LIBRARIES}
   ${CLRX_LIBRARIES}
+  blkmaker
+  curl
+  jansson
+  crypto
+  ssl
 )
 
 if (STATIC_BUILD)

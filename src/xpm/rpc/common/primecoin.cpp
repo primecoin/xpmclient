@@ -10,6 +10,7 @@
 #include <openssl/sha.h>
 
 #include <algorithm>
+#include "prime.h"
 
 extern unsigned gDebug;
 extern unsigned gSieveSize;
@@ -212,76 +213,14 @@ PrimeSource::PrimeSource(uint32_t primesNum, unsigned inversedMultipliersNum) :
                       _primes, primesNum, inversedMultipliersNum);
 }
 
-bool sha256(void *out, const void *data, size_t size)
-{
-  SHA256_CTX ctx;
-  SHA256_Init(&ctx);
-  SHA256_Update(&ctx, data, size);
-  SHA256_Final((unsigned char*)out, &ctx);
-  return true;
-}
-
-
-bool updateBlock(PrimecoinBlockHeader *header,
-                 mpz_class &blockHeaderHash,
-                 const PrimeSource &primeSource,
-                 CPrimalityTestParams &testParams,
-                 unsigned nonceIncrement)
-{
-  uint8_t hash1[32];
-  uint8_t hashData[32];
-  while (header->nonce < 0xFFFF0000) {
-    header->nonce += nonceIncrement;
-    sha256(hash1, header, 80);
-    sha256(hashData, hash1, 32);
-    // sha256-hash must be greater than 2^255
-    if (!(hashData[31] & 0x80))
-      continue;    
-    
-    mpz_import(blockHeaderHash.get_mpz_t(),
-               32 / sizeof(unsigned long),
-               -1,
-               sizeof(unsigned long),
-               -1,
-               0,
-               hashData);
-    
-    if (ProbablePrimalityTestWithTrialDivisionFast(blockHeaderHash, 1000, primeSource, testParams))
-      break;
-  }
-  
-  return header->nonce < 0xFFFF0000;
-}
-
-
-
-
-
-// Test Probable Cunningham Chain for: n
-// fSophieGermain:
-//   true - Test for Cunningham Chain of first kind (n, 2n+1, 4n+3, ...)
-//   false - Test for Cunningham Chain of second kind (n, 2n-1, 4n-3, ...)
-// Return value:
-//   true - Probable Cunningham Chain found (length at least 2)
-//   false - Not Cunningham Chain
-
-
-// Test probable prime chain for: nOrigin
-// Return value:
-//   true - Probable prime chain found (one of nChainLength meeting target)
-//   false - prime chain too short (none of nChainLength meeting target)
-
-
-unsigned int TargetGetFractional(unsigned int nBits) {
- return (nBits & DifficultyFractionalMask);
-}
-
-std::string TargetToString(unsigned int nBits) {
- char buffer[32];
- unsigned int currentlength=(nBits & DifficultyChainLengthMask) >> DifficultyFractionalBits;
- std::snprintf(buffer, sizeof(buffer), "%02x.%06x", currentlength, TargetGetFractional(nBits));
- return std::string(buffer);
-}
+// bool sha256(void *out, const void *data, size_t size)
+// {
+//   SHA256_CTX ctx;
+//   SHA256_Init(&ctx);
+//   SHA256_Update(&ctx, data, size);
+//   SHA256_Final((unsigned char*)out, &ctx);
+//   return true;
+// }
 
 std::string GetPrimeChainName(unsigned int nChainType, unsigned int nChainLength) {
  const std::string strLabels[5] = {"NUL", "1CC", "2CC", "TWN", "UNK"};

@@ -103,13 +103,9 @@ bool trialDivisionChainTest(const PrimeSource &primeSource,
                             unsigned chainLength,
                             unsigned depth);
 
-bool sha256(void *out, const void *data, size_t size);
+// bool sha256(void *out, const void *data, size_t size);
 
 class CSieveOfEratosthenesL1Ext;
-
-unsigned int TargetGetFractional(unsigned int nBits);
-
-std::string TargetToString(unsigned int nBits);
 
 std::string GetPrimeChainName(unsigned int nChainType, unsigned int nChainLength) ;
 

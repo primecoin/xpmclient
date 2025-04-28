@@ -8,7 +8,7 @@
 #ifndef XPMCLIENT_H_
 #define XPMCLIENT_H_
 
-
+#include <thread>
 #include <gmp.h>
 #include <gmpxx.h>
 
@@ -195,7 +195,6 @@ public:
     info_t cunningham2[1];
   };
 	
-  void Mining(GetBlockTemplateContext* gbp, SubmitContext* submit);
 	
   PrimeMiner(unsigned id, unsigned threads, unsigned sievePerRound, unsigned depth, unsigned LSize);
 	~PrimeMiner();
@@ -220,8 +219,8 @@ private:
                       uint64_t &fermatCount,
                       cl_kernel fermatKernel,
                       unsigned sievePerRound);
-  
-
+	friend class MiningNode;
+	void Mining(void *ctx, void *pipe);
 	
 	unsigned mID;
 	unsigned mThreads;
@@ -248,8 +247,7 @@ private:
   info_t final;	
 };
 
-
-
+class MiningNode;
 
 class XPMClient : public BaseClient {
 public:
@@ -259,6 +257,8 @@ public:
 	virtual ~XPMClient();
   
 	bool Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adjustedKernelTarget = 0);
+	void NotifyBlock(const proto::Block& block);
+	bool TakeWork(const proto::Work& work);
 	int GetStats(proto::ClientStats& stats);
 	void Toggle();
 	
@@ -268,6 +268,7 @@ private:
 	bool clKernelTargetAutoAdjust;
 	
   std::vector<std::pair<PrimeMiner*, void*> > mWorkers;
+  std::unique_ptr<MiningNode> _node;
 
   bool checkProgramKernelConfig(const char *kernelName,
                                 cl_context context,
@@ -284,6 +285,24 @@ private:
                           std::ostream &file,
                           bool isGCN);
 
+};
+
+class MiningNode {
+public:
+  explicit MiningNode(Configuration* cfg);
+  ~MiningNode();
+
+  bool Start();
+
+private:
+  void RunLoop();
+
+  GetBlockTemplateContext* _gbtCtx;
+  SubmitContext*          _submitCtx;
+  PrimeMiner*             _miner;
+  std::thread             _thread;
+
+  friend class PrimeMiner;
 };
 
 #endif /* XPMCLIENT_H_ */
