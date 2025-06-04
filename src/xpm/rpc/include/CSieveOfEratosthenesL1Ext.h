@@ -1,5 +1,6 @@
 #include "primecoin.h"
 #include <gmpxx.h>
+#include "prime.h"
 
 class CSieveOfEratosthenesL1Ext { 
 public:
