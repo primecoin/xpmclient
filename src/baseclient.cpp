@@ -54,15 +54,34 @@ static BaseClient *gClient;
 static bool ConnectBitcoin() {
 	
 	const proto::ServerInfo& sinfo = gServerInfo;
-  LOG_F(INFO, "Connecting to bitcoin: %s:%d ...", sinfo.host().c_str(), sinfo.router());
+    LOG_F(INFO, "Connecting to bitcoin: %s:%d ...", sinfo.host().c_str(), sinfo.router());
 	int linger = 0;
 	char endpoint[256];
 	snprintf(endpoint, sizeof(endpoint), "tcp://%s:%d", sinfo.host().c_str(), sinfo.router());	
+	
+	if(gServer) {
+		zmq_close(gServer);
+		gServer = nullptr;
+	}
+	
 	gServer = zmq_socket(gCtx, ZMQ_DEALER);
-  zmq_setsockopt(gServer, ZMQ_LINGER, &linger, sizeof(int));
+	if(!gServer) {
+        LOG_F(ERROR, "Failed to create bitcoin socket: %s", zmq_strerror(errno));
+		return false;
+	}
+	
+	if(zmq_setsockopt(gServer, ZMQ_LINGER, &linger, sizeof(int)) != 0) {
+        LOG_F(ERROR, "Failed to set ZMQ_LINGER for bitcoin socket: %s", zmq_strerror(errno));
+		zmq_close(gServer);
+		gServer = nullptr;
+		return false;
+	}
+	
 	int err = zmq_connect(gServer, endpoint);
 	if(err) {
-    LOG_F(ERROR, "Can't connect to %s:%d (%s code: %d)", sinfo.host().c_str(), sinfo.router(), strerror(errno), errno);
+        LOG_F(ERROR, "Can't connect to %s:%d (%s code: %d)", sinfo.host().c_str(), sinfo.router(), strerror(errno), errno);
+		zmq_close(gServer);
+		gServer = nullptr;
 		return false;
 	}
 	
@@ -72,20 +91,44 @@ static bool ConnectBitcoin() {
 static bool ConnectSignals() {
 	
 	const proto::ServerInfo& sinfo = gServerInfo;
-  LOG_F(INFO, "Connecting to signals: %s:%d ...", sinfo.host().c_str(), sinfo.pub());
+    LOG_F(INFO, "Connecting to signals: %s:%d ...", sinfo.host().c_str(), sinfo.pub());
 	int linger = 0;
 	char endpoint[256];
 	snprintf(endpoint, sizeof(endpoint), "tcp://%s:%d", sinfo.host().c_str(), sinfo.pub());
+	
+	if(gSignals) {
+		zmq_close(gSignals);
+		gSignals = nullptr;
+	}
+	
 	gSignals = zmq_socket(gCtx, ZMQ_SUB);
-	zmq_setsockopt (gSignals, ZMQ_LINGER, &linger, sizeof(int));
+	if(!gSignals) {
+        LOG_F(ERROR, "Failed to create signals socket: %s", zmq_strerror(errno));
+		return false;
+	}
+	
+	if(zmq_setsockopt(gSignals, ZMQ_LINGER, &linger, sizeof(int)) != 0) {
+        LOG_F(ERROR, "Failed to set ZMQ_LINGER for signals socket: %s", zmq_strerror(errno));
+		zmq_close(gSignals);
+		gSignals = nullptr;
+		return false;
+	}
+	
 	int err = zmq_connect(gSignals, endpoint);
-	if(err){
-    LOG_F(ERROR, "Can't connect to %s:%d (%s code: %d)", sinfo.host().c_str(), sinfo.pub(), strerror(errno), errno);
+	if(err) {
+        LOG_F(ERROR, "Can't connect to %s:%d (%s code: %d)", sinfo.host().c_str(), sinfo.pub(), strerror(errno), errno);
+		zmq_close(gSignals);
+		gSignals = nullptr;
 		return false;
 	}
 	
 	const char one[2] = {1, 0};
-	zmq_setsockopt (gSignals, ZMQ_SUBSCRIBE, one, 1);
+	if(zmq_setsockopt(gSignals, ZMQ_SUBSCRIBE, one, 1) != 0) {
+        LOG_F(ERROR, "Failed to set ZMQ_SUBSCRIBE for signals socket: %s", zmq_strerror(errno));
+		zmq_close(gSignals);
+		gSignals = nullptr;
+		return false;
+	}
 	
 	return true;
 	
@@ -399,9 +442,10 @@ int main(int argc, char **argv)
 	try{
 		cfg->parse("config.txt");
 		frontHost = cfg->lookupString("", "server", "localhost");
-		frontPort = cfg->lookupInt("", "port", 6666);
+		frontPort = cfg->lookupInt("", "port", 6680);
 		gAddr = cfg->lookupString("", "address", "");
 		gClientName = cfg->lookupString("", "name", gClientName.c_str());
+		gServerInfo.set_router(cfg->lookupInt("", "router_port", 60002));
     weaveDepth = cfg->lookupInt("", "weaveDepth", 40960);
 	}catch(const ConfigurationException& ex){
     LOG_F(ERROR, "%s\n", ex.c_str());
@@ -447,8 +491,29 @@ int main(int argc, char **argv)
 			int linger = 0;
 			char endpoint[256];
 			snprintf(endpoint, sizeof(endpoint), "tcp://%s:%d", frontHost.c_str(), frontPort);
+			
+			if(gFrontend) {
+				zmq_disconnect(gFrontend, endpoint);
+				if(zmq_setsockopt(gFrontend, ZMQ_LINGER, &linger, sizeof(int)) != 0) {
+          LOG_F(ERROR, "Failed to set ZMQ_LINGER for frontend socket: %s", zmq_strerror(errno));
+				}
+				zmq_close(gFrontend);
+				gFrontend = nullptr;
+			}
+			
 			gFrontend = zmq_socket(gCtx, ZMQ_DEALER);
-      zmq_setsockopt (gFrontend, ZMQ_LINGER, &linger, sizeof(int));
+			if(!gFrontend) {
+        LOG_F(ERROR, "Failed to create frontend socket: %s", zmq_strerror(errno));
+				continue;
+			}
+			
+			if(zmq_setsockopt(gFrontend, ZMQ_LINGER, &linger, sizeof(int)) != 0) {
+        LOG_F(ERROR, "Failed to set ZMQ_LINGER for frontend socket: %s", zmq_strerror(errno));
+				zmq_close(gFrontend);
+				gFrontend = nullptr;
+				continue;
+			}
+			
       if ( (result = zmq_connect(gFrontend, endpoint)) == 0 ) {
         proto::Request req;
         req.set_type(proto::Request::CONNECT);
@@ -497,62 +562,69 @@ int main(int argc, char **argv)
           }
         }
 
-        zmq_disconnect(gFrontend, endpoint);
+        if (!frontendConnected) {
+          zmq_disconnect(gFrontend, endpoint);
+          zmq_close(gFrontend);
+          gFrontend = nullptr;
+        }
       } else {
         LOG_F(ERROR, "Can't connect to %s:%d (%s code: %d)", frontHost.c_str(), frontPort, strerror(errno), errno);
+        zmq_close(gFrontend);
+        gFrontend = nullptr;
       }
 
-      zmq_close(gFrontend);
-      std::this_thread::sleep_for(std::chrono::seconds(1));
-		}
-
-    bool loopActive = true;
-    time_t timer1sec = time(nullptr);
-    time_t timer1min = time(nullptr);
-    zmq_pollitem_t items[] = {
-      {gServer, 0, ZMQ_POLLIN, 0},
-      {gSignals, 0, ZMQ_POLLIN, 0},
-      {gWorkers, 0, ZMQ_POLLIN, 0}
-    };
+      if (!frontendConnected) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+      }
+    }
 		
-		gHeartBeat = true;
-		gExit = true;
-		
-		if(rep.has_block())
-			HandleNewBlock(rep.block());
-		else
-			RequestWork();
-
-
-    gClient->Toggle();
-		while (loopActive) {
-			int result = zmq_poll(items, sizeof(items)/sizeof(zmq_pollitem_t), 1000);
-			if (result == -1)
-				break;
-         
-			if (result > 0) {
-				if (items[0].revents & ZMQ_POLLIN)
-					loopActive &= (HandleReply(gServer) == 0);
-				if (items[1].revents & ZMQ_POLLIN)
-					loopActive &= (HandleSignal(gSignals) == 0);
-				if (items[2].revents & ZMQ_POLLIN)
-					loopActive &= (HandleWorkers(gWorkers) == 0);
-			}
+		bool loopActive = true;
+		time_t timer1sec = time(nullptr);
+		time_t timer1min = time(nullptr);
+		zmq_pollitem_t items[] = {
+			{gServer, 0, ZMQ_POLLIN, 0},
+			{gSignals, 0, ZMQ_POLLIN, 0},
+			{gWorkers, 0, ZMQ_POLLIN, 0}
+		};
 			
-			// check timers
-			time_t currentTime = time(0);
-			if (currentTime - timer1sec >= 1) {
-				timer1sec = currentTime;
-				loopActive &= (TimeoutCheckProc() == 0);
-			}
+			gHeartBeat = true;
+			gExit = true;
 			
-			if (currentTime - timer1min >= 60) {
-				timer1min = currentTime;
-				loopActive &= (HandleTimer() == 0);
-			}
-		}                
+			if(rep.has_block())
+				HandleNewBlock(rep.block());
+			else
+				RequestWork();
 
-    gClient->Toggle();
+
+      gClient->Toggle();
+			while (loopActive) {
+				int result = zmq_poll(items, sizeof(items)/sizeof(zmq_pollitem_t), 1000);
+				if (result == -1)
+					break;
+			 
+				if (result > 0) {
+					if (items[0].revents & ZMQ_POLLIN)
+						loopActive &= (HandleReply(gServer) == 0);
+					if (items[1].revents & ZMQ_POLLIN)
+						loopActive &= (HandleSignal(gSignals) == 0);
+					if (items[2].revents & ZMQ_POLLIN)
+						loopActive &= (HandleWorkers(gWorkers) == 0);
+				}
+				
+				// check timers
+				time_t currentTime = time(0);
+				if (currentTime - timer1sec >= 1) {
+					timer1sec = currentTime;
+					loopActive &= (TimeoutCheckProc() == 0);
+				}
+				
+				if (currentTime - timer1min >= 60) {
+					timer1min = currentTime;
+					loopActive &= (HandleTimer() == 0);
+				}
+			}                
+
+      gClient->Toggle();
 		zmq_close(gServer);
 		zmq_close(gSignals);
 		gServer = 0;
@@ -561,9 +633,32 @@ int main(int argc, char **argv)
 	}
 	
 	delete gClient;
-	zmq_close(gWorkers);
-	zmq_close(gFrontend);
-	zmq_ctx_shutdown(gCtx);
+	
+	if(gWorkers) {
+		zmq_close(gWorkers);
+		gWorkers = nullptr;
+	}
+	
+	if(gFrontend) {
+		zmq_close(gFrontend); 
+		gFrontend = nullptr;
+	}
+
+	if(gServer) {
+		zmq_close(gServer);
+		gServer = nullptr;
+	}
+
+	if(gSignals) {
+		zmq_close(gSignals);
+		gSignals = nullptr;
+	}
+
+	if(gCtx) {
+		zmq_ctx_shutdown(gCtx);
+		zmq_ctx_term(gCtx);
+		gCtx = nullptr;
+	}
 	
 	return EXIT_SUCCESS;
 	
