@@ -221,6 +221,7 @@ private:
                       unsigned sievePerRound);
 	friend class MiningNode;
 	void Mining(void *ctx, void *pipe);
+  void SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit);
 	
 	unsigned mID;
 	unsigned mThreads;
@@ -293,7 +294,7 @@ public:
   ~MiningNode();
 
   bool Start();
-
+  void AssignMiner(PrimeMiner* miner);
 private:
   void RunLoop();
 
