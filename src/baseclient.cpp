@@ -224,7 +224,7 @@ static void PrintStats() {
 	
 	if(!gShares.size())
     strcat(buffer, " none");
-  	LOG_F(INFO, "%s", buffer);
+    LOG_F(INFO, "%s", buffer);
 }
 
 
