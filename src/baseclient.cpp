@@ -54,7 +54,7 @@ static BaseClient *gClient;
 static bool ConnectBitcoin() {
 	
 	const proto::ServerInfo& sinfo = gServerInfo;
-    LOG_F(INFO, "Connecting to bitcoin: %s:%d ...", sinfo.host().c_str(), sinfo.router());
+  LOG_F(INFO, "Connecting to bitcoin: %s:%d ...", sinfo.host().c_str(), sinfo.router());
 	int linger = 0;
 	char endpoint[256];
 	snprintf(endpoint, sizeof(endpoint), "tcp://%s:%d", sinfo.host().c_str(), sinfo.router());	
@@ -91,7 +91,7 @@ static bool ConnectBitcoin() {
 static bool ConnectSignals() {
 	
 	const proto::ServerInfo& sinfo = gServerInfo;
-    LOG_F(INFO, "Connecting to signals: %s:%d ...", sinfo.host().c_str(), sinfo.pub());
+  LOG_F(INFO, "Connecting to signals: %s:%d ...", sinfo.host().c_str(), sinfo.pub());
 	int linger = 0;
 	char endpoint[256];
 	snprintf(endpoint, sizeof(endpoint), "tcp://%s:%d", sinfo.host().c_str(), sinfo.pub());
@@ -415,29 +415,29 @@ static int TimeoutCheckProc() {
 
 int main(int argc, char **argv)
 {
-	char logFileName[64];
-	{
-		auto t = std::time(nullptr);
-		auto now = std::localtime(&t);
-		snprintf(logFileName, sizeof(logFileName), "miner-%04u-%02u-%02u.log", now->tm_year + 1900, now->tm_mon + 1, now->tm_mday);
-	}
-	loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
-	loguru::g_preamble_thread = false;
-	loguru::g_preamble_file = false;
-	loguru::g_flush_interval_ms = 100;
-	loguru::init(argc, argv);
-	loguru::add_file(logFileName, loguru::Append, loguru::Verbosity_INFO);
-	loguru::g_stderr_verbosity = 1;
+  char logFileName[64];
+  {
+    auto t = std::time(nullptr);
+    auto now = std::localtime(&t);
+    snprintf(logFileName, sizeof(logFileName), "miner-%04u-%02u-%02u.log", now->tm_year + 1900, now->tm_mon + 1, now->tm_mday);
+  }
+  loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
+  loguru::g_preamble_thread = false;
+  loguru::g_preamble_file = false;
+  loguru::g_flush_interval_ms = 100;
+  loguru::init(argc, argv);
+  loguru::add_file(logFileName, loguru::Append, loguru::Verbosity_INFO);
+  loguru::g_stderr_verbosity = 1;
 
-  	gBlock.set_height(0);
+  gBlock.set_height(0);
 	gClientName = sysinfo::GetClientName();
 	gClientID = sysinfo::GetClientID();
 	gInstanceID = gClientID * (unsigned)time(0);
 	srand(gInstanceID);
 	
 	std::string frontHost;
-	unsigned frontPort;
-	unsigned weaveDepth;
+  unsigned frontPort;
+  unsigned weaveDepth;
 	Configuration* cfg = Configuration::create();
 	try{
 		cfg->parse("config.txt");
@@ -454,9 +454,9 @@ int main(int argc, char **argv)
 	if(!gClientName.size())
     gClientName = sysinfo::GetClientName();
 
-	LOG_F(INFO, "xpmclient-%u.%u.%u", gClientVersion / 100, (gClientVersion % 100) / 10, (gClientVersion % 100) % 10);
-	LOG_F(INFO, "ClientName = '%s'  ClientID = %u  InstanceID = %u", gClientName.c_str(), gClientID, gInstanceID);
-	LOG_F(INFO, "Address = '%s'", gAddr.c_str());
+  LOG_F(INFO, "xpmclient-%u.%u.%u", gClientVersion / 100, (gClientVersion % 100) / 10, (gClientVersion % 100) % 10);
+  LOG_F(INFO, "ClientName = '%s'  ClientID = %u  InstanceID = %u", gClientName.c_str(), gClientID, gInstanceID);
+  LOG_F(INFO, "Address = '%s'", gAddr.c_str());
 	
 	if(!gAddr.size()){
     LOG_F(ERROR, "address not specified in config.txt\n");
@@ -467,10 +467,10 @@ int main(int argc, char **argv)
 	gWorkers = zmq_socket(gCtx, ZMQ_PULL);
 	zmq_bind(gWorkers, "inproc://shares");
 
-  	gClient = createClient(gCtx);
+  gClient = createClient(gCtx);
   
-  	bool benchmarkOnly = false;
-  	if (argc >= 2) {
+  bool benchmarkOnly = false;
+  if (argc >= 2) {
     if (strcmp(argv[1], "-b") == 0 || strcmp(argv[1], "--benchmark") == 0)
       benchmarkOnly = true;
     else if (strcmp(argv[1], "-c") == 0)
@@ -478,7 +478,7 @@ int main(int argc, char **argv)
   }
 	gExit = !gClient->Initialize(cfg, benchmarkOnly);
 	
-  	while(!gExit){
+  while(!gExit){
 		gBlock.Clear();
 		proto::Reply rep;
 
@@ -494,7 +494,7 @@ int main(int argc, char **argv)
 			if(gFrontend) {
 				zmq_disconnect(gFrontend, endpoint);
 				if(zmq_setsockopt(gFrontend, ZMQ_LINGER, &linger, sizeof(int)) != 0) {
-		LOG_F(ERROR, "Failed to set ZMQ_LINGER for frontend socket: %s", zmq_strerror(errno));
+          LOG_F(ERROR, "Failed to set ZMQ_LINGER for frontend socket: %s", zmq_strerror(errno));
 				}
 				zmq_close(gFrontend);
 				gFrontend = nullptr;
