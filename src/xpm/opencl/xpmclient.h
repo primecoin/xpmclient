@@ -8,7 +8,7 @@
 #ifndef XPMCLIENT_H_
 #define XPMCLIENT_H_
 
-
+#include <thread>
 #include <gmp.h>
 #include <gmpxx.h>
 
@@ -17,6 +17,7 @@
 #include "hwmon.h"
 #include "uint256.h"
 #include "sha256.h"
+#include "getblocktemplate.h"
 
 #define FERMAT_PIPELINES 2
 
@@ -218,8 +219,9 @@ private:
                       uint64_t &fermatCount,
                       cl_kernel fermatKernel,
                       unsigned sievePerRound);
-  
+	friend class MiningNode;
 	void Mining(void *ctx, void *pipe);
+  void SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit);
 	
 	unsigned mID;
 	unsigned mThreads;
@@ -246,8 +248,7 @@ private:
   info_t final;	
 };
 
-
-
+class MiningNode;
 
 class XPMClient : public BaseClient {
 public:
@@ -268,6 +269,7 @@ private:
 	bool clKernelTargetAutoAdjust;
 	
   std::vector<std::pair<PrimeMiner*, void*> > mWorkers;
+  std::unique_ptr<MiningNode> _node;
 
   bool checkProgramKernelConfig(const char *kernelName,
                                 cl_context context,
@@ -284,6 +286,24 @@ private:
                           std::ostream &file,
                           bool isGCN);
 
+};
+
+class MiningNode {
+public:
+  explicit MiningNode(Configuration* cfg);
+  ~MiningNode();
+
+  bool Start();
+  void AssignMiner(PrimeMiner* miner);
+private:
+  void RunLoop();
+
+  GetBlockTemplateContext* _gbtCtx;
+  SubmitContext*          _submitCtx;
+  PrimeMiner*             _miner;
+  std::thread             _thread;
+
+  friend class PrimeMiner;
 };
 
 #endif /* XPMCLIENT_H_ */
