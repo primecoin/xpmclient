@@ -595,33 +595,33 @@ int main(int argc, char **argv)
                 RequestWork();
 
 
-    gClient->Toggle();
-        while (loopActive) {
-            int result = zmq_poll(items, sizeof(items)/sizeof(zmq_pollitem_t), 1000);
-            if (result == -1)
-                break;
-            
-            if (result > 0) {
-                if (items[0].revents & ZMQ_POLLIN)
-                    loopActive &= (HandleReply(gServer) == 0);
-                if (items[1].revents & ZMQ_POLLIN)
-                    loopActive &= (HandleSignal(gSignals) == 0);
-                if (items[2].revents & ZMQ_POLLIN)
-                    loopActive &= (HandleWorkers(gWorkers) == 0);
-            }
-            
-            // check timers
-            time_t currentTime = time(0);
-            if (currentTime - timer1sec >= 1) {
-                timer1sec = currentTime;
-                loopActive &= (TimeoutCheckProc() == 0);
-            }
-            
-            if (currentTime - timer1min >= 60) {
-                timer1min = currentTime;
-                loopActive &= (HandleTimer() == 0);
-            }
-        }                
+                gClient->Toggle();
+                while (loopActive) {
+                    int result = zmq_poll(items, sizeof(items)/sizeof(zmq_pollitem_t), 1000);
+                    if (result == -1)
+                        break;
+                 
+                    if (result > 0) {
+                        if (items[0].revents & ZMQ_POLLIN)
+                            loopActive &= (HandleReply(gServer) == 0);
+                        if (items[1].revents & ZMQ_POLLIN)
+                            loopActive &= (HandleSignal(gSignals) == 0);
+                        if (items[2].revents & ZMQ_POLLIN)
+                            loopActive &= (HandleWorkers(gWorkers) == 0);
+                    }
+                    
+                    // check timers
+                    time_t currentTime = time(0);
+                    if (currentTime - timer1sec >= 1) {
+                        timer1sec = currentTime;
+                        loopActive &= (TimeoutCheckProc() == 0);
+                    }
+                    
+                    if (currentTime - timer1min >= 60) {
+                        timer1min = currentTime;
+                        loopActive &= (HandleTimer() == 0);
+                    }
+                }              
 
     gClient->Toggle();
 		zmq_close(gServer);
