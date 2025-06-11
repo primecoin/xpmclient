@@ -59,11 +59,11 @@ static bool ConnectBitcoin() {
 	char endpoint[256];
 	snprintf(endpoint, sizeof(endpoint), "tcp://%s:%d", sinfo.host().c_str(), sinfo.router());	
 	
-	if(gServer) {
-		zmq_close(gServer);
-		gServer = nullptr;
-	}
-	
+    if(gServer) {
+        zmq_close(gServer);
+        gServer = nullptr;
+    }
+
 	gServer = zmq_socket(gCtx, ZMQ_DEALER);
     if(!gServer) {
         LOG_F(ERROR, "Failed to create bitcoin socket: %s", zmq_strerror(errno));
@@ -577,51 +577,51 @@ int main(int argc, char **argv)
       }
     }
         
-        bool loopActive = true;
-        time_t timer1sec = time(nullptr);
-        time_t timer1min = time(nullptr);
-        zmq_pollitem_t items[] = {
-            {gServer, 0, ZMQ_POLLIN, 0},
-            {gSignals, 0, ZMQ_POLLIN, 0},
-            {gWorkers, 0, ZMQ_POLLIN, 0}
-        };
-            
-            gHeartBeat = true;
-            gExit = true;
-            
-            if(rep.has_block())
-                HandleNewBlock(rep.block());
-            else
-                RequestWork();
+    bool loopActive = true;
+    time_t timer1sec = time(nullptr);
+    time_t timer1min = time(nullptr);
+    zmq_pollitem_t items[] = {
+      {gServer, 0, ZMQ_POLLIN, 0},
+      {gSignals, 0, ZMQ_POLLIN, 0},
+      {gWorkers, 0, ZMQ_POLLIN, 0}
+    };
+		
+		gHeartBeat = true;
+		gExit = true;
+		
+		if(rep.has_block())
+			HandleNewBlock(rep.block());
+		else
+			RequestWork();
 
 
-                gClient->Toggle();
-                while (loopActive) {
-                    int result = zmq_poll(items, sizeof(items)/sizeof(zmq_pollitem_t), 1000);
-                    if (result == -1)
-                        break;
-                 
-                    if (result > 0) {
-                        if (items[0].revents & ZMQ_POLLIN)
-                            loopActive &= (HandleReply(gServer) == 0);
-                        if (items[1].revents & ZMQ_POLLIN)
-                            loopActive &= (HandleSignal(gSignals) == 0);
-                        if (items[2].revents & ZMQ_POLLIN)
-                            loopActive &= (HandleWorkers(gWorkers) == 0);
-                    }
-                    
-                    // check timers
-                    time_t currentTime = time(0);
-                    if (currentTime - timer1sec >= 1) {
-                        timer1sec = currentTime;
-                        loopActive &= (TimeoutCheckProc() == 0);
-                    }
-                    
-                    if (currentTime - timer1min >= 60) {
-                        timer1min = currentTime;
-                        loopActive &= (HandleTimer() == 0);
-                    }
-                }              
+    gClient->Toggle();
+		while (loopActive) {
+			int result = zmq_poll(items, sizeof(items)/sizeof(zmq_pollitem_t), 1000);
+			if (result == -1)
+				break;
+         
+			if (result > 0) {
+				if (items[0].revents & ZMQ_POLLIN)
+					loopActive &= (HandleReply(gServer) == 0);
+				if (items[1].revents & ZMQ_POLLIN)
+					loopActive &= (HandleSignal(gSignals) == 0);
+				if (items[2].revents & ZMQ_POLLIN)
+					loopActive &= (HandleWorkers(gWorkers) == 0);
+			}
+			
+			// check timers
+			time_t currentTime = time(0);
+			if (currentTime - timer1sec >= 1) {
+				timer1sec = currentTime;
+				loopActive &= (TimeoutCheckProc() == 0);
+			}
+			
+			if (currentTime - timer1min >= 60) {
+				timer1min = currentTime;
+				loopActive &= (HandleTimer() == 0);
+			}
+		}              
 
     gClient->Toggle();
 		zmq_close(gServer);
