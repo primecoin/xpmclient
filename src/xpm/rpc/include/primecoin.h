@@ -13,12 +13,6 @@ static const uint32_t DifficultyChainLengthMask = ~DifficultyFractionalMask;
 
 const unsigned MaxChainLength = 20;
 
-enum {
-  PRIME_CHAIN_CUNNINGHAM1 = 1u,
-  PRIME_CHAIN_CUNNINGHAM2 = 2u,
-  PRIME_CHAIN_BI_TWIN     = 3u,
-};
-
 class PrimeSource {
 private:
   uint32_t _primesNum;
@@ -107,75 +101,7 @@ bool trialDivisionChainTest(const PrimeSource &primeSource,
                             unsigned chainLength,
                             unsigned depth);
 
-bool sha256(void *out, const void *data, size_t size);
-
 class CSieveOfEratosthenesL1Ext;
-
-struct CPrimalityTestParams {
-  mpz_t mpzE;
-  mpz_t mpzR;
-  mpz_t mpzRplusOne;
-  
-  mpz_class mpzOriginMinusOne;
-  mpz_class mpzOriginPlusOne;
-  mpz_class N;
-  
-  unsigned int bits;
-  unsigned int candidateType;
-  unsigned int chainLength;
-  
-  CPrimalityTestParams(unsigned int difficultyBits) {
-    bits = difficultyBits;
-    chainLength = 0;
-    mpz_init(mpzE);
-    mpz_init(mpzR);
-    mpz_init(mpzRplusOne);
-  }
-  
-  ~CPrimalityTestParams() {
-    mpz_clear(mpzE);
-    mpz_clear(mpzR);
-    mpz_clear(mpzRplusOne);
-  }
-};
-
-bool ProbablePrimeChainTestFast(const mpz_class& mpzPrimeChainOrigin,
-                                CPrimalityTestParams& testParams);
-
-void PrimorialFast(unsigned int length,
-                   mpz_class& bnPrimorial,
-                   const PrimeSource &primeSource);
-
-bool FermatProbablePrimalityTestFast(const mpz_class &n,
-                                     unsigned int& nLength, 
-                                     CPrimalityTestParams &testParams,
-                                     bool fFastFail = false);
-
-bool ProbablePrimalityTestWithTrialDivisionFast(const mpz_class &candidate,
-                                                unsigned trialDivisionLimit,
-                                                const PrimeSource &primeSource,
-                                                CPrimalityTestParams &testParams);
-
-bool MineProbablePrimeChainFast(PrimecoinBlockHeader &header,
-                                CSieveOfEratosthenesL1Ext *sieve,                                
-                                mpz_class &blockHeaderHash,
-                                mpz_class &primorial,
-                                unsigned int& nProbableChainLength,
-                                unsigned int& nTests,
-                                unsigned int& nPrimesHit,
-                                CPrimalityTestParams &testParams,
-                                const PrimeSource &primeSource,
-                                uint64_t *foundChains);
-
-bool updateBlock(PrimecoinBlockHeader *header,
-                 mpz_class &blockHeaderHash,
-                 const PrimeSource &primeSource,
-                 CPrimalityTestParams &testParams,
-                 unsigned nonceIncrement = 1);
-
-unsigned int TargetGetFractional(unsigned int nBits);
-
-std::string TargetToString(unsigned int nBits);
 
 std::string GetPrimeChainName(unsigned int nChainType, unsigned int nChainLength) ;
 

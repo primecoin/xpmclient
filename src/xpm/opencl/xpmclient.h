@@ -17,6 +17,7 @@
 #include "hwmon.h"
 #include "uint256.h"
 #include "sha256.h"
+#include "getblocktemplate.h"
 
 #define FERMAT_PIPELINES 2
 
