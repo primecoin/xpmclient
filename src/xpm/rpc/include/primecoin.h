@@ -103,7 +103,7 @@ bool trialDivisionChainTest(const PrimeSource &primeSource,
                             unsigned chainLength,
                             unsigned depth);
 
-// bool sha256(void *out, const void *data, size_t size);
+bool sha256(void *out, const void *data, size_t size);
 
 class CSieveOfEratosthenesL1Ext;
 

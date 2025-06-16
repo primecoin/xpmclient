@@ -271,6 +271,11 @@ private:
   std::vector<std::pair<PrimeMiner*, void*> > mWorkers;
   std::unique_ptr<MiningNode> _node;
 
+  // OpenCL context and related resources in Solo mode
+  cl_context _soloContext = nullptr;
+  cl_device_id _soloDevice = nullptr;
+  openclPrograms _soloPrograms = {};
+
   bool checkProgramKernelConfig(const char *kernelName,
                                 cl_context context,
                                 cl_device_id device,
@@ -302,6 +307,11 @@ private:
   SubmitContext*          _submitCtx;
   PrimeMiner*             _miner;
   std::thread             _thread;
+
+  std::string             _url;
+  std::string             _user;
+  std::string             _password;
+  std::string             _wallet;
 
   friend class PrimeMiner;
 };

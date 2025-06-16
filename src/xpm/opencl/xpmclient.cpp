@@ -286,6 +286,7 @@ void PrimeMiner::Mining(void *ctx, void *pipe) {
   clBuffer<cl_uint> candidatesCountBuffers[SW][2];
 	pipeline_t fermat320;
   pipeline_t fermat352;
+  info_t final;
 	CPrimalityTestParams testParams;
 	std::vector<fermat_t> candis;
   unsigned numHashCoeff = 32768;
@@ -390,7 +391,7 @@ void PrimeMiner::Mining(void *ctx, void *pipe) {
 			time_t currtime = time(0);
 			time_t elapsed = currtime - time1;
 			if(elapsed > 11){
- 				zmq_send(statspush, &stats, sizeof(stats), 0);
+ 				zmq_send(statspush, &stats, sizeof(stats), 0);                          
 				time1 = currtime;
 			}
 			
@@ -755,6 +756,17 @@ XPMClient::~XPMClient() {
 	zmq_close(mBlockPub);
 	zmq_close(mWorkPub);
 	zmq_close(mStatsPull);
+
+	// Release the OpenCL resources of the solo mode
+	if (_soloContext) {
+		if (_soloPrograms.sha256) clReleaseProgram(_soloPrograms.sha256);
+		if (_soloPrograms.sieve) clReleaseProgram(_soloPrograms.sieve);
+		if (_soloPrograms.sieveUtils) clReleaseProgram(_soloPrograms.sieveUtils);
+		if (_soloPrograms.Fermat) clReleaseProgram(_soloPrograms.Fermat);
+		if (_soloPrograms.FermatUtils) clReleaseProgram(_soloPrograms.FermatUtils);
+		clReleaseContext(_soloContext);
+		_soloContext = nullptr;
+	}
 	
 }
 
@@ -835,6 +847,7 @@ void XPMClient::dumpSieveConstants(unsigned weaveDepth,
 bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adjustedKernelTarget) {
 
   std::string mode = cfg->lookupString("", "mode", "pool");
+  blkmk_sha256_impl = sha256;
 
   cl_context gContext[64] = {nullptr};
   openclPrograms gPrograms[64] = {};
@@ -1312,25 +1325,21 @@ bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adju
     return false;
   } else {
     if (mode == "solo") {
-      PrimeMiner* miner = new PrimeMiner(
-         /* id=*/0,
-         /* threads=*/sievePerRound[0],
-         /* sievePerRound=*/sievePerRound[0],
-         /* depth=*/depth,
-         /* LSize=*/clKernelLSize
-      );
-      miner->Initialize(gContext[0], gPrograms[0], gpus[0]);
-
-      // Start SoloMiningNode
-      _node = std::make_unique<MiningNode>(_cfg);
-      _node->AssignMiner(miner);
-      if (!_node->Start()) {
-          LOG_F(ERROR, "Failed to start solo miner thread");
-          return false;
-      }
-
-      mWorkers.push_back({miner, /* pipe=*/nullptr});
-      return true;
+    PrimeMiner* miner = new PrimeMiner(0, 1, sievePerRound[0], depth, clKernelLSize);
+    if (!miner->Initialize(gContext[0], gPrograms[0], allgpus[0])) {
+        LOG_F(ERROR, "Failed to initialize PrimeMiner");
+        delete miner;
+        return false;
+    }
+    _node = std::make_unique<MiningNode>(cfg);
+    _node->AssignMiner(miner);
+    if (!_node->Start()) {
+        LOG_F(ERROR, "Failed to start solo mining thread");
+        delete miner;
+        return false;
+    }
+    LOG_F(INFO, "Solo mining initialized successfully");
+    return true;
     }
     for(unsigned i = 0; i < gpus.size(); ++i) {
       char deviceName[128];
@@ -1352,7 +1361,7 @@ bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adju
         worker.second = 0;
       
       }
-     
+    
       mWorkers.push_back(worker);
     }
   }
@@ -1572,33 +1581,32 @@ MiningNode::MiningNode(Configuration* cfg) {
     try { cpuload = cfg->lookupInt("", "cpuload", 1); }
     catch (const config4cpp::ConfigurationException&) {}
 
-
-    std::string url = "";
-    try { url = cfg->lookupString("", "url", url.c_str()); }
-    catch (const config4cpp::ConfigurationException&) {}
-
-    std::string user;
     try { 
-        user = cfg->lookupString("", "user"); 
+        _url = cfg->lookupString("", "url"); 
     }
     catch (const config4cpp::ConfigurationException&) {
-        user.clear();
+        _url.clear();
     }
 
-    std::string pass;
     try { 
-        pass = cfg->lookupString("", "pass"); 
+        _user = cfg->lookupString("", "user"); 
     }
     catch (const config4cpp::ConfigurationException&) {
-        pass.clear();
+        _user.clear();
     }
 
-    std::string wallet;
+    try { 
+        _password = cfg->lookupString("", "pass"); 
+    }
+    catch (const config4cpp::ConfigurationException&) {
+        _password.clear();
+    }
+
     try {
-        wallet = cfg->lookupString("", "wallet");
+        _wallet = cfg->lookupString("", "wallet");
     }
     catch (const config4cpp::ConfigurationException&) {
-        wallet.clear();
+        _wallet.clear();
     }
 
     // timeout、blocksNum（threadsNum）、extraNonce
@@ -1609,18 +1617,20 @@ MiningNode::MiningNode(Configuration* cfg) {
     try { blocksNum = cfg->lookupInt("", "threadsNum", blocksNum); } catch(const ConfigurationException& ex) {}
     try { extraNonce= cfg->lookupInt("", "extraNonce",extraNonce);} catch(const ConfigurationException& ex) {}
 
+    LOG_F(INFO, "Creating GetBlockTemplateContext with URL: '%s', user: '%s'", _url.c_str(), _user.c_str());
+
     _gbtCtx    = new GetBlockTemplateContext(nullptr,
-                                             url.c_str(),
-                                             user.c_str(),
-                                             pass.c_str(),
-                                             wallet.c_str(),
+                                             _url.c_str(),
+                                             _user.c_str(),
+                                             _password.c_str(),
+                                             _wallet.c_str(),
                                              timeout,
                                              blocksNum,
                                              extraNonce);
     _submitCtx = new SubmitContext(nullptr,
-                                   url.c_str(),
-                                   user.c_str(),
-                                   pass.c_str());
+                                   _url.c_str(),
+                                   _user.c_str(),
+                                   _password.c_str());
 
     // sievePerRound
     unsigned sievePerRound = 5;
@@ -1637,13 +1647,7 @@ MiningNode::MiningNode(Configuration* cfg) {
     unsigned lSize = 256;
     try { lSize = cfg->lookupInt("", "lSize", lSize); } catch(...) {}
 
-    _miner = new PrimeMiner(
-      /* id= */          0,
-      /* threads= */     blocksNum,
-      /* sievePerRound=*/ sievePerRound,
-      /* depth= */       depth,
-      /* LSize= */       lSize
-    );
+    _miner = nullptr;
 }
 
 void MiningNode::AssignMiner(PrimeMiner* miner) {
@@ -1657,12 +1661,18 @@ MiningNode::~MiningNode() {
 }
 
 bool MiningNode::Start() {
+    LOG_F(INFO, "Starting GetBlockTemplate context...");
     _gbtCtx->run();
+    LOG_F(INFO, "GetBlockTemplate context started successfully");
+    
     try {
+        LOG_F(INFO, "Starting solo mining thread...");
         _thread = std::thread(&MiningNode::RunLoop, this);
         _thread.detach();
+        LOG_F(INFO, "Solo mining thread started successfully");
         return true;
     } catch (const ConfigurationException& ex) {
+        LOG_F(ERROR, "Failed to start solo mining thread: %s", ex.c_str());
         return false;
     }
 }
@@ -1672,6 +1682,8 @@ void MiningNode::RunLoop() {
 }
 
 void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit) {
+  LOG_F(INFO, "GPU %d: Starting solo mining process...", mID);
+  
   unsigned int dataId;
   bool hasChanged;
   blktemplate_t *workTemplate = 0;
@@ -1819,9 +1831,18 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
     // get work
     bool reset = false;
     {
-      while ( !(workTemplate = gbp->get(0, workTemplate, &dataId, &hasChanged)) )
+      LOG_F(INFO, "GPU %d: Requesting block template from node...", mID);
+      while ( !(workTemplate = gbp->get(0, workTemplate, &dataId, &hasChanged)) ) {
+        static time_t lastLogTime = 0;
+        time_t currentTime = time(nullptr);
+        if (currentTime - lastLogTime >= 5) {  // 每5秒打印一次等待信息
+          LOG_F(WARNING, "GPU %d: Waiting for block template from node...", mID);
+          lastLogTime = currentTime;
+        }
         usleep(100);
+      }
       if(workTemplate && hasChanged){
+        LOG_F(INFO, "GPU %d: New block template received (dataId: %u)", mID, dataId);
         run = true;//ReceivePub(work, worksub);
         reset = true;
       }
@@ -1849,6 +1870,9 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
       }
 			
       printf("version is %u\n", workTemplate->version);
+      LOG_F(INFO, "GPU %d: Processing block template - Version: %u, Time: %u, Bits: 0x%08x", 
+            mID, workTemplate->version, workTemplate->curtime, *(uint32_t*)workTemplate->diffbits);
+      
       blockheader.version = workTemplate->version;
       char blkhex[128];
       _blkmk_bin2hex(blkhex, workTemplate->prevblk, 32);
@@ -1861,6 +1885,8 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
       testParams.nBits = blockheader.bits;
 			
 			unsigned target = TargetGetLength(blockheader.bits);
+      LOG_F(INFO, "GPU %d: Mining target length: %u, Difficulty: %.8f", 
+            mID, target, GetPrimeDifficulty(blockheader.bits));
       
       sha256precalcData data;
       precalcSHA256(&blockheader, hashmod.midstate.HostData, &data);
@@ -1876,7 +1902,7 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
       OCL(clSetKernelArg(mHashMod, 12, sizeof(cl_uint), &data.new2_0));
       OCL(clSetKernelArg(mHashMod, 13, sizeof(cl_uint), &data.new2_1));
       OCL(clSetKernelArg(mHashMod, 14, sizeof(cl_uint), &data.new2_2));
-      OCL(clSetKernelArg(mHashMod, 15, sizeof(cl_uint), &data.temp2_3));         
+      OCL(clSetKernelArg(mHashMod, 15, sizeof(cl_uint), &data.temp2_3));
 		}
 		
 		// hashmod fetch & dispatch

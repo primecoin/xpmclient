@@ -5,6 +5,9 @@
 #include <fstream>
 #include <vector>
 #include <memory>
+#include <algorithm>
+#include <cctype>
+#include <string>
 
 extern cl_platform_id gPlatform;
 
@@ -18,24 +21,29 @@ bool clInitialize(const char *requiredPlatform, std::vector<cl_device_id> &gpus)
     return false;
   }
   
+  LOG_F(INFO, "requiredPlatform = '%s'", requiredPlatform);
+
+  auto trim = [](const std::string& s) {
+    auto start = s.find_first_not_of(" \t\r\n");
+    auto end = s.find_last_not_of(" \t\r\n");
+    return (start == std::string::npos) ? "" : s.substr(start, end - start + 1);
+  };
+
   int platformIdx = -1;
-  if (requiredPlatform) {
-    for (decltype(numPlatforms) i = 0; i < numPlatforms; i++) {
-      char name[1024] = {0};
-      OCLR(clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, sizeof(name), name, 0), false);
-      LOG_F(INFO, "found platform[%i] name = '%s'", (int)i, name);
-      if (strcmp(name, requiredPlatform) == 0) {
-        platformIdx = i;
-        break;
-      }
+  std::string required = trim(requiredPlatform ? requiredPlatform : "");
+  for (decltype(numPlatforms) i = 0; i < numPlatforms; i++) {
+    char name[1024] = {0};
+    OCLR(clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, sizeof(name), name, 0), false);
+    std::string plat = trim(name);
+    LOG_F(INFO, "found platform[%i] name = '%s'", (int)i, plat.c_str());
+    if (strcasecmp(plat.c_str(), required.c_str()) == 0) {
+      platformIdx = i;
+      break;
     }
-  } else {
-    platformIdx = 0;
   }
   
-  
   if (platformIdx == -1) {
-    LOG_F(ERROR, "platform %s not exists", requiredPlatform);
+    LOG_F(ERROR, "platform '%s' not exists", requiredPlatform);
     return false;
   }
   

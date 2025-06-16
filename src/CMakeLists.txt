@@ -168,6 +168,7 @@ target_link_libraries(xpmclient
   jansson
   crypto
   ssl
+  stdc++
 )
 
 if (STATIC_BUILD)
