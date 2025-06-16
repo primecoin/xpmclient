@@ -514,7 +514,7 @@ int main(int argc, char **argv)
             if(gFrontend) {
                 zmq_disconnect(gFrontend, endpoint);
                 if(zmq_setsockopt(gFrontend, ZMQ_LINGER, &linger, sizeof(int)) != 0) {
-                    LOG_F(ERROR, "Failed to set ZMQ_LINGER for frontend socket: %s", zmq_strerror(errno));
+				LOG_F(ERROR, "Failed to set ZMQ_LINGER for frontend socket: %s", zmq_strerror(errno));
                 }
                 zmq_close(gFrontend);
                 gFrontend = nullptr;

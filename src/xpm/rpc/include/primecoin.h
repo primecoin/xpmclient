@@ -13,8 +13,6 @@ static const uint32_t DifficultyChainLengthMask = ~DifficultyFractionalMask;
 
 const unsigned MaxChainLength = 20;
 
-
-
 class PrimeSource {
 private:
   uint32_t _primesNum;
