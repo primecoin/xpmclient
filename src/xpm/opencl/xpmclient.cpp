@@ -1331,8 +1331,7 @@ bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adju
         delete miner;
         return false;
     }
-    _node = std::make_unique<MiningNode>(cfg);
-    _node->AssignMiner(miner);
+    _node = std::make_unique<MiningNode>(cfg, miner);
     if (!_node->Start()) {
         LOG_F(ERROR, "Failed to start solo mining thread");
         delete miner;
@@ -1576,78 +1575,23 @@ void XPMClient::Toggle()
   mPaused = !mPaused;
 }
 
-MiningNode::MiningNode(Configuration* cfg) {
-    int cpuload = 1;
-    try { cpuload = cfg->lookupInt("", "cpuload", 1); }
-    catch (const config4cpp::ConfigurationException&) {}
+MiningNode::MiningNode(Configuration* cfg, PrimeMiner* miner)
+  : _miner(miner)
+{
+  int cpuload = cfg->lookupInt("", "cpuload", 1);
+  _url      = cfg->lookupString("", "rpcurl", "127.0.0.1:9912");
+  _user     = cfg->lookupString("", "rpcuser", "");
+  _password = cfg->lookupString("", "rpcpass", "");
+  _wallet   = cfg->lookupString("", "wallet", "");
 
-    try { 
-        _url = cfg->lookupString("", "rpcurl");
-    }
-    catch (const config4cpp::ConfigurationException&) {
-        _url.clear();
-    }
+  unsigned timeout    = cfg->lookupInt("", "timeout",   4);
+  unsigned blocksNum  = cfg->lookupInt("", "threadsNum", 1);
+  unsigned extraNonce = cfg->lookupInt("", "extraNonce", 0);
 
-    try { 
-        _user = cfg->lookupString("", "rpcuser");
-    }
-    catch (const config4cpp::ConfigurationException&) {
-        _user.clear();
-    }
+  LOG_F(INFO, "Creating GetBlockTemplateContext with URL: '%s', user: '%s'", _url.c_str(), _user.c_str());
 
-    try { 
-        _password = cfg->lookupString("", "rpcpass");
-    }
-    catch (const config4cpp::ConfigurationException&) {
-        _password.clear();
-    }
-
-    try {
-        _wallet = cfg->lookupString("", "wallet");
-    }
-    catch (const config4cpp::ConfigurationException&) {
-        _wallet.clear();
-    }
-
-    // timeout、blocksNum（threadsNum）、extraNonce
-    unsigned timeout   = 4;
-    unsigned blocksNum = 1;
-    unsigned extraNonce = 0;
-    try { timeout   = cfg->lookupInt("", "timeout",   timeout);   } catch(const ConfigurationException& ex) {}
-    try { blocksNum = cfg->lookupInt("", "threadsNum", blocksNum); } catch(const ConfigurationException& ex) {}
-    try { extraNonce= cfg->lookupInt("", "extraNonce",extraNonce);} catch(const ConfigurationException& ex) {}
-
-    LOG_F(INFO, "Creating GetBlockTemplateContext with URL: '%s', user: '%s'", _url.c_str(), _user.c_str());
-
-    _gbtCtx    = new GetBlockTemplateContext(nullptr,
-                                             _url.c_str(),
-                                             _user.c_str(),
-                                             _password.c_str(),
-                                             _wallet.c_str(),
-                                             timeout,
-                                             blocksNum,
-                                             extraNonce);
-    _submitCtx = new SubmitContext(nullptr,
-                                   _url.c_str(),
-                                   _user.c_str(),
-                                   _password.c_str());
-
-    // sievePerRound
-    unsigned sievePerRound = 5;
-    try {
-      StringVector v;
-      cfg->lookupList("", "sievePerRound", v);
-      if (v.length() > 0) sievePerRound = atoi(v[0]);
-    } catch(...) {}
-
-    int depth = 5 - cpuload;
-    depth = std::clamp(depth, 2, 5);
-
-    // LSize
-    unsigned lSize = 256;
-    try { lSize = cfg->lookupInt("", "lSize", lSize); } catch(...) {}
-
-    _miner = nullptr;
+  _gbtCtx    = new GetBlockTemplateContext(0, _url.c_str(), _user.c_str(), _password.c_str(), _wallet.c_str(), timeout, blocksNum, extraNonce);
+  _submitCtx = new SubmitContext(0, _url.c_str(), _user.c_str(), _password.c_str());
 }
 
 void MiningNode::AssignMiner(PrimeMiner* miner) {
@@ -1655,30 +1599,30 @@ void MiningNode::AssignMiner(PrimeMiner* miner) {
 }
 
 MiningNode::~MiningNode() {
-    delete _gbtCtx;
-    delete _submitCtx;
-    delete _miner;
+  delete _gbtCtx;
+  delete _submitCtx;
+  delete _miner;
 }
 
 bool MiningNode::Start() {
-    LOG_F(INFO, "Starting GetBlockTemplate context...");
-    _gbtCtx->run();
-    LOG_F(INFO, "GetBlockTemplate context started successfully");
-    
-    try {
-        LOG_F(INFO, "Starting solo mining thread...");
-        _thread = std::thread(&MiningNode::RunLoop, this);
-        _thread.detach();
-        LOG_F(INFO, "Solo mining thread started successfully");
-        return true;
-    } catch (const ConfigurationException& ex) {
-        LOG_F(ERROR, "Failed to start solo mining thread: %s", ex.c_str());
-        return false;
-    }
+  LOG_F(INFO, "Starting GetBlockTemplate context...");
+  _gbtCtx->run();
+  LOG_F(INFO, "GetBlockTemplate context started successfully");
+  
+  try {
+      LOG_F(INFO, "Starting solo mining thread...");
+      _thread = std::thread(&MiningNode::RunLoop, this);
+      _thread.detach();
+      LOG_F(INFO, "Solo mining thread started successfully");
+      return true;
+  } catch (const ConfigurationException& ex) {
+      LOG_F(ERROR, "Failed to start solo mining thread: %s", ex.c_str());
+      return false;
+  }
 }
 
 void MiningNode::RunLoop() {
-  _miner->SoloMining(_gbtCtx, _submitCtx);
+    if (_miner) _miner->SoloMining(_gbtCtx, _submitCtx);
 }
 
 void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit) {

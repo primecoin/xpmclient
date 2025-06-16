@@ -295,7 +295,7 @@ private:
 
 class MiningNode {
 public:
-  explicit MiningNode(Configuration* cfg);
+  MiningNode(Configuration* cfg, PrimeMiner* miner);
   ~MiningNode();
 
   bool Start();
