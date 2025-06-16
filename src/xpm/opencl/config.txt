@@ -2,8 +2,7 @@
 #   http://xpmforall.org
 #   http://coinsforall.io
 
-# Select the solo or pool mode
-# The default is pool mode
+# Mining mode: "solo" for solo mining, "pool" for pool mining (default: pool)
 mode = "";
 
 # Solo mining
