@@ -2,14 +2,17 @@
 #   http://xpmforall.org
 #   http://coinsforall.io
 
-#Select the solo or pool mode
-#The default is pool mode
+# Select the solo or pool mode
+# The default is pool mode
 mode = "";
-url = "";
-user = "";
-pass = "";
+
+# Solo mining
+rpcurl = "";
+rpcuser = "";
+rpcpass = "";
 wallet = "";
 
+# Pool mining
 server = "coinsforall.io";
 port = "6666";
 

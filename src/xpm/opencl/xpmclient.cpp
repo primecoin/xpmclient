@@ -1582,21 +1582,21 @@ MiningNode::MiningNode(Configuration* cfg) {
     catch (const config4cpp::ConfigurationException&) {}
 
     try { 
-        _url = cfg->lookupString("", "url"); 
+        _url = cfg->lookupString("", "rpcurl");
     }
     catch (const config4cpp::ConfigurationException&) {
         _url.clear();
     }
 
     try { 
-        _user = cfg->lookupString("", "user"); 
+        _user = cfg->lookupString("", "rpcuser");
     }
     catch (const config4cpp::ConfigurationException&) {
         _user.clear();
     }
 
     try { 
-        _password = cfg->lookupString("", "pass"); 
+        _password = cfg->lookupString("", "rpcpass");
     }
     catch (const config4cpp::ConfigurationException&) {
         _password.clear();
