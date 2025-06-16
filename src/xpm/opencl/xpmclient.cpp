@@ -1835,7 +1835,7 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
       while ( !(workTemplate = gbp->get(0, workTemplate, &dataId, &hasChanged)) ) {
         static time_t lastLogTime = 0;
         time_t currentTime = time(nullptr);
-        if (currentTime - lastLogTime >= 5) {  // 每5秒打印一次等待信息
+        if (currentTime - lastLogTime >= 5) {
           LOG_F(WARNING, "GPU %d: Waiting for block template from node...", mID);
           lastLogTime = currentTime;
         }

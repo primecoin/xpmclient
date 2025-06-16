@@ -2,6 +2,14 @@
 #   http://xpmforall.org
 #   http://coinsforall.io
 
+#Select the solo or pool mode
+#The default is pool mode
+mode = "";
+url = "";
+user = "";
+pass = "";
+wallet = "";
+
 server = "coinsforall.io";
 port = "6666";
 

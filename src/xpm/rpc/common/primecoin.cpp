@@ -228,4 +228,3 @@ std::string GetPrimeChainName(unsigned int nChainType, unsigned int nChainLength
  std::snprintf(buffer, sizeof(buffer), "%s%s", strLabels[std::min(nChainType, 4u)].c_str(), TargetToString(nChainLength).c_str());
  return std::string(buffer);
 }
-
