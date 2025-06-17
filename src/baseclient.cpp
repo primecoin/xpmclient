@@ -496,19 +496,18 @@ int main(int argc, char **argv)
     p.get_future().wait();
     return 0;
   } else {
-    gExit = !gClient->Initialize(cfg, benchmarkOnly);
-    while(!gExit){
-        gBlock.Clear();
-        proto::Reply rep;
+  while(!gExit){
+		gBlock.Clear();
+		proto::Reply rep;
 
-        bool frontendConnected = false;
-        LOG_F(INFO, "Connecting to frontend: %s:%d ...", frontHost.c_str(), frontPort);
+    bool frontendConnected = false;
+    LOG_F(INFO, "Connecting to frontend: %s:%d ...", frontHost.c_str(), frontPort);
 
-        while (!frontendConnected) {
-            int result;
-            int linger = 0;
-            char endpoint[256];
-            snprintf(endpoint, sizeof(endpoint), "tcp://%s:%d", frontHost.c_str(), frontPort);
+    while (!frontendConnected) {
+      int result;
+			int linger = 0;
+			char endpoint[256];
+			snprintf(endpoint, sizeof(endpoint), "tcp://%s:%d", frontHost.c_str(), frontPort);
             
             if(gFrontend) {
                 zmq_disconnect(gFrontend, endpoint);
@@ -564,26 +563,31 @@ int main(int argc, char **argv)
                   Send(req, gServer);
 
                   frontendConnected = true;
-                                }
-                            } else {
-                                LOG_F(ERROR, "Pool uses too old protocol version (%u.%u or higher required), try run in compatible mode (xpmclient -c)", poolMajorVersionRequired, poolMinorVersionRequired);
-                                exit(EXIT_FAILURE);
-                            }
-                        } else {
-                            gExit = true;
-                            LOG_F(ERROR, "Pool protocol mismatch (!has_sinfo)");
-                        }
-                    } else {
-                        LOG_F(ERROR, "%s", proto::Reply::ErrType_Name(rep.error()).c_str());
-                        if(rep.has_errstr())
-                            LOG_F(ERROR, "Message from server: %s", rep.errstr().c_str());
-                    }
                 }
+              } else {
+                LOG_F(ERROR, "Pool uses too old protocol version (%u.%u or higher required), try run in compatible mode (xpmclient -c)", poolMajorVersionRequired, poolMinorVersionRequired);
+                exit(EXIT_FAILURE);
+              }
+            } else {
+              gExit = true;
+              LOG_F(ERROR, "Pool protocol mismatch (!has_sinfo)");
+            }
+          } else {
+            LOG_F(ERROR, "%s", proto::Reply::ErrType_Name(rep.error()).c_str());
+            if(rep.has_errstr())
+              LOG_F(ERROR, "Message from server: %s", rep.errstr().c_str());
+          }
+        }
 
-                if (!frontendConnected) {
-                    zmq_disconnect(gFrontend, endpoint);
-                    zmq_close(gFrontend);
-                    gFrontend = nullptr;
+        if (!frontendConnected) {
+          zmq_disconnect(gFrontend, endpoint);
+          zmq_close(gFrontend);
+          gFrontend = nullptr;
+        }
+      } else {
+        LOG_F(ERROR, "Can't connect to %s:%d (%s code: %d)", frontHost.c_str(), frontPort, strerror(errno), errno);
+        zmq_close(gFrontend);
+        gFrontend = nullptr;
                 }
             } else {
                 LOG_F(ERROR, "Can't connect to %s:%d (%s code: %d)", frontHost.c_str(), frontPort, strerror(errno), errno);
@@ -640,7 +644,7 @@ int main(int argc, char **argv)
 				timer1min = currentTime;
 				loopActive &= (HandleTimer() == 0);
 			}
-		}                
+		}              
 
     gClient->Toggle();
 		zmq_close(gServer);
