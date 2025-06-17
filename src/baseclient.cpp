@@ -513,13 +513,13 @@ int main(int argc, char **argv)
             if(gFrontend) {
                 zmq_disconnect(gFrontend, endpoint);
                 if(zmq_setsockopt(gFrontend, ZMQ_LINGER, &linger, sizeof(int)) != 0) {
-				LOG_F(ERROR, "Failed to set ZMQ_LINGER for frontend socket: %s", zmq_strerror(errno));
+                LOG_F(ERROR, "Failed to set ZMQ_LINGER for frontend socket: %s", zmq_strerror(errno));
                 }
                 zmq_close(gFrontend);
                 gFrontend = nullptr;
             }
             
-            gFrontend = zmq_socket(gCtx, ZMQ_DEALER);
+			gFrontend = zmq_socket(gCtx, ZMQ_DEALER);
             if(!gFrontend) {
                 LOG_F(ERROR, "Failed to create frontend socket: %s", zmq_strerror(errno));
                 continue;
@@ -532,38 +532,38 @@ int main(int argc, char **argv)
                 continue;
             }
             
-            if ( (result = zmq_connect(gFrontend, endpoint)) == 0 ) {
-                proto::Request req;
-                req.set_type(proto::Request::CONNECT);
-                req.set_reqid(++gNextReqID);
-                req.set_version(gClientVersion);
-                req.set_height(0);
-                GetNewReqNonce(req);
-                Send(req, gFrontend);
+      if ( (result = zmq_connect(gFrontend, endpoint)) == 0 ) {
+        proto::Request req;
+        req.set_type(proto::Request::CONNECT);
+        req.set_reqid(++gNextReqID);
+        req.set_version(gClientVersion);
+        req.set_height(0);
+        GetNewReqNonce(req);
+        Send(req, gFrontend);
 
-                bool ready = czmq_poll(gFrontend, 3000);
-                if (ready) {
-                    Receive(rep, gFrontend);
-                    if (rep.error() == proto::Reply::NONE) {
-                        if (rep.has_sinfo()) {
-                            gServerInfo = rep.sinfo();
-                            bool versionCompatible =
-                                gServerInfo.has_versionmajor() &&
-                                gServerInfo.has_versionminor() &&
-                                (gServerInfo.versionmajor() > poolMajorVersionRequired ||
-                                (gServerInfo.versionmajor() == poolMajorVersionRequired && gServerInfo.versionminor() >= poolMinorVersionRequired));
-                            if (versionCompatible || gCompatible) {
-                                if (!versionCompatible)
-                                    LOG_F(ERROR, "Pool uses too old protocol version (%u.%u or higher required)", poolMajorVersionRequired, poolMinorVersionRequired);
-                                if (ConnectBitcoin() && ConnectSignals()) {
-                                    // set config
-                                    proto::Request req;
-                                    req.set_type(proto::Request::SETCONFIG);
-                                    req.set_reqid(++gNextReqID);
-                                    req.set_weavedepth(weaveDepth);
-                                    Send(req, gServer);
+        bool ready = czmq_poll(gFrontend, 3000);
+        if (ready) {
+          Receive(rep, gFrontend);
+          if (rep.error() == proto::Reply::NONE) {
+            if (rep.has_sinfo()) {
+              gServerInfo = rep.sinfo();
+              bool versionCompatible =
+                gServerInfo.has_versionmajor() &&
+                gServerInfo.has_versionminor() &&
+                  (gServerInfo.versionmajor() > poolMajorVersionRequired ||
+                  (gServerInfo.versionmajor() == poolMajorVersionRequired && gServerInfo.versionminor() >= poolMinorVersionRequired));
+              if (versionCompatible || gCompatible) {
+                if (!versionCompatible)
+                  LOG_F(ERROR, "Pool uses too old protocol version (%u.%u or higher required)", poolMajorVersionRequired, poolMinorVersionRequired);
+                if (ConnectBitcoin() && ConnectSignals()) {
+                  // set config
+                  proto::Request req;
+                  req.set_type(proto::Request::SETCONFIG);
+                  req.set_reqid(++gNextReqID);
+                  req.set_weavedepth(weaveDepth);
+                  Send(req, gServer);
 
-                                    frontendConnected = true;
+                  frontendConnected = true;
                                 }
                             } else {
                                 LOG_F(ERROR, "Pool uses too old protocol version (%u.%u or higher required), try run in compatible mode (xpmclient -c)", poolMajorVersionRequired, poolMinorVersionRequired);
@@ -595,58 +595,59 @@ int main(int argc, char **argv)
                 std::this_thread::sleep_for(std::chrono::seconds(1));
             }
         }
-        
-        bool loopActive = true;
-        time_t timer1sec = time(nullptr);
-        time_t timer1min = time(nullptr);
-        zmq_pollitem_t items[] = {
-            {gServer, 0, ZMQ_POLLIN, 0},
-            {gSignals, 0, ZMQ_POLLIN, 0},
-            {gWorkers, 0, ZMQ_POLLIN, 0}
-        };
-        
-        gHeartBeat = true;
-        gExit = true;
-        
-        if(rep.has_block())
-            HandleNewBlock(rep.block());
-        else
-            RequestWork();
 
-        gClient->Toggle();
-        while (loopActive) {
-            int result = zmq_poll(items, sizeof(items)/sizeof(zmq_pollitem_t), 1000);
-            if (result == -1)
-                break;
-            
-            if (result > 0) {
-                if (items[0].revents & ZMQ_POLLIN)
-                    loopActive &= (HandleReply(gServer) == 0);
-                if (items[1].revents & ZMQ_POLLIN)
-                    loopActive &= (HandleSignal(gSignals) == 0);
-                if (items[2].revents & ZMQ_POLLIN)
-                    loopActive &= (HandleWorkers(gWorkers) == 0);
-            }
-            
-            // check timers
-            time_t currentTime = time(0);
-            if (currentTime - timer1sec >= 1) {
-                timer1sec = currentTime;
-                loopActive &= (TimeoutCheckProc() == 0);
-            }
-            
-            if (currentTime - timer1min >= 60) {
-                timer1min = currentTime;
-                loopActive &= (HandleTimer() == 0);
-            }
-        }              
+    bool loopActive = true;
+    time_t timer1sec = time(nullptr);
+    time_t timer1min = time(nullptr);
+    zmq_pollitem_t items[] = {
+      {gServer, 0, ZMQ_POLLIN, 0},
+      {gSignals, 0, ZMQ_POLLIN, 0},
+      {gWorkers, 0, ZMQ_POLLIN, 0}
+    };
+		
+		gHeartBeat = true;
+		gExit = true;
+		
+		if(rep.has_block())
+			HandleNewBlock(rep.block());
+		else
+			RequestWork();
 
-        gClient->Toggle();
-        zmq_close(gServer);
-        zmq_close(gSignals);
-        gServer = 0;
-        gSignals = 0;
-        std::this_thread::sleep_for(std::chrono::seconds(5));
+
+    gClient->Toggle();
+		while (loopActive) {
+			int result = zmq_poll(items, sizeof(items)/sizeof(zmq_pollitem_t), 1000);
+			if (result == -1)
+				break;
+         
+			if (result > 0) {
+				if (items[0].revents & ZMQ_POLLIN)
+					loopActive &= (HandleReply(gServer) == 0);
+				if (items[1].revents & ZMQ_POLLIN)
+					loopActive &= (HandleSignal(gSignals) == 0);
+				if (items[2].revents & ZMQ_POLLIN)
+					loopActive &= (HandleWorkers(gWorkers) == 0);
+			}
+			
+			// check timers
+			time_t currentTime = time(0);
+			if (currentTime - timer1sec >= 1) {
+				timer1sec = currentTime;
+				loopActive &= (TimeoutCheckProc() == 0);
+			}
+			
+			if (currentTime - timer1min >= 60) {
+				timer1min = currentTime;
+				loopActive &= (HandleTimer() == 0);
+			}
+		}                
+
+    gClient->Toggle();
+		zmq_close(gServer);
+		zmq_close(gSignals);
+		gServer = 0;
+		gSignals = 0;
+    std::this_thread::sleep_for(std::chrono::seconds(5));
     }
   }
 	
