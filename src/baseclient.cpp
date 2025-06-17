@@ -590,7 +590,6 @@ int main(int argc, char **argv)
         gFrontend = nullptr;
       }
 
-
       if (!frontendConnected) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
       }

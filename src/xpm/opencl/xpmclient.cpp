@@ -286,7 +286,6 @@ void PrimeMiner::Mining(void *ctx, void *pipe) {
   clBuffer<cl_uint> candidatesCountBuffers[SW][2];
 	pipeline_t fermat320;
   pipeline_t fermat352;
-  info_t final;
 	CPrimalityTestParams testParams;
 	std::vector<fermat_t> candis;
   unsigned numHashCoeff = 32768;
@@ -757,6 +756,19 @@ XPMClient::~XPMClient() {
 	zmq_close(mWorkPub);
 	zmq_close(mStatsPull);
 
+
+	// Release the OpenCL resources of the solo mode
+	if (_soloContext) {
+		if (_soloPrograms.sha256) clReleaseProgram(_soloPrograms.sha256);
+		if (_soloPrograms.sieve) clReleaseProgram(_soloPrograms.sieve);
+		if (_soloPrograms.sieveUtils) clReleaseProgram(_soloPrograms.sieveUtils);
+		if (_soloPrograms.Fermat) clReleaseProgram(_soloPrograms.Fermat);
+		if (_soloPrograms.FermatUtils) clReleaseProgram(_soloPrograms.FermatUtils);
+		clReleaseContext(_soloContext);
+		_soloContext = nullptr;
+	}
+	
+	
 	// Release the OpenCL resources of the solo mode
 	if (_soloContext) {
 		if (_soloPrograms.sha256) clReleaseProgram(_soloPrograms.sha256);
@@ -2112,8 +2124,8 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
   LOG_F(INFO, "GPU %d stopped", mID);
 	
   for (unsigned i = 0; i < maxHashPrimorial-mPrimorial; i++) {
-	  clReleaseMemObject(primeBuf[i]);
-	  clReleaseMemObject(primeBuf2[i]);
+    clReleaseMemObject(primeBuf[i]);
+    clReleaseMemObject(primeBuf2[i]);
   }
 
 }
