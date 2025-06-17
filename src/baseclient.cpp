@@ -490,7 +490,7 @@ int main(int argc, char **argv)
   }
 
   if (mode == "solo") {
-    gExit = !gClient->Initialize(cfg, benchmarkOnly);
+	gExit = !gClient->Initialize(cfg, benchmarkOnly);
     // Block the main thread to prevent premature destruction
     std::promise<void> p;
     p.get_future().wait();
@@ -588,18 +588,14 @@ int main(int argc, char **argv)
         LOG_F(ERROR, "Can't connect to %s:%d (%s code: %d)", frontHost.c_str(), frontPort, strerror(errno), errno);
         zmq_close(gFrontend);
         gFrontend = nullptr;
-                }
-            } else {
-                LOG_F(ERROR, "Can't connect to %s:%d (%s code: %d)", frontHost.c_str(), frontPort, strerror(errno), errno);
-                zmq_close(gFrontend);
-                gFrontend = nullptr;
-            }
+      }
 
-            if (!frontendConnected) {
-                std::this_thread::sleep_for(std::chrono::seconds(1));
-            }
-        }
 
+      if (!frontendConnected) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+      }
+    }
+        
     bool loopActive = true;
     time_t timer1sec = time(nullptr);
     time_t timer1min = time(nullptr);
@@ -652,7 +648,7 @@ int main(int argc, char **argv)
 		gServer = 0;
 		gSignals = 0;
     std::this_thread::sleep_for(std::chrono::seconds(5));
-    }
+	}
   }
 	
 	delete gClient;
