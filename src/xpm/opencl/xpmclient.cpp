@@ -1524,4 +1524,5 @@ void XPMClient::Toggle()
   }
 
   mPaused = !mPaused;
+  "test"
 }
