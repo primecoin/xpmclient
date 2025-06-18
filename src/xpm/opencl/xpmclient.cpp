@@ -1775,18 +1775,9 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
     // get work
     bool reset = false;
     {
-      LOG_F(INFO, "GPU %d: Requesting block template from node...", mID);
-      while ( !(workTemplate = gbp->get(0, workTemplate, &dataId, &hasChanged)) ) {
-        static time_t lastLogTime = 0;
-        time_t currentTime = time(nullptr);
-        if (currentTime - lastLogTime >= 5) {
-          LOG_F(WARNING, "GPU %d: Waiting for block template from node...", mID);
-          lastLogTime = currentTime;
-        }
+      while ( !(workTemplate = gbp->get(0, workTemplate, &dataId, &hasChanged)) )
         usleep(100);
-      }
       if(workTemplate && hasChanged){
-        LOG_F(INFO, "GPU %d: New block template received (dataId: %u)", mID, dataId);
         run = true;//ReceivePub(work, worksub);
         reset = true;
       }
@@ -1813,10 +1804,6 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
         }
       }
 			
-      printf("version is %u\n", workTemplate->version);
-      LOG_F(INFO, "GPU %d: Processing block template - Version: %u, Time: %u, Bits: 0x%08x", 
-            mID, workTemplate->version, workTemplate->curtime, *(uint32_t*)workTemplate->diffbits);
-      
       blockheader.version = workTemplate->version;
       char blkhex[128];
       _blkmk_bin2hex(blkhex, workTemplate->prevblk, 32);
