@@ -1682,7 +1682,7 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
         p *= gPrimes[j];
         
         primorial[i] = p;
-}
+    }
 
     {
     unsigned primorialbits = mpz_sizeinbase(primorial[0].get_mpz_t(), 2);
@@ -1700,12 +1700,12 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
     
     unsigned MSO = 1024 * mConfig.STRIPES / 2;
     for(int sieveIdx = 0; sieveIdx < SW; ++sieveIdx) {
-    for(int instIdx = 0; instIdx < 2; ++instIdx){    
-    for (int pipelineIdx = 0; pipelineIdx < FERMAT_PIPELINES; pipelineIdx++)
-        OCL(sieveBuffers[sieveIdx][pipelineIdx][instIdx].init(_context, MSO, CL_MEM_HOST_NO_ACCESS));
-        OCL(candidatesCountBuffers[sieveIdx][instIdx].init(_context, FERMAT_PIPELINES, CL_MEM_ALLOC_HOST_PTR));
+        for(int instIdx = 0; instIdx < 2; ++instIdx){    
+            for (int pipelineIdx = 0; pipelineIdx < FERMAT_PIPELINES; pipelineIdx++)
+                OCL(sieveBuffers[sieveIdx][pipelineIdx][instIdx].init(_context, MSO, CL_MEM_HOST_NO_ACCESS));
+                OCL(candidatesCountBuffers[sieveIdx][instIdx].init(_context, FERMAT_PIPELINES, CL_MEM_ALLOC_HOST_PTR));
+        }
     }
-}
     
     for(int k = 0; k < 2; ++k){
     OCL(sieveBuf[k].init(_context, mConfig.SIZE*mConfig.STRIPES/2*mConfig.WIDTH, CL_MEM_HOST_NO_ACCESS));
@@ -1724,11 +1724,11 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
         clBuffer<cl_uint> &current = modulosBuf[bufIdx];
         OCL(current.init(_context, modulosBufferSize, CL_MEM_READ_ONLY));
         for (unsigned i = 0; i < mConfig.PCOUNT; i++) {
-        mpz_class X = 1;
-        for (unsigned j = 0; j < mConfig.N-1; j++) {
-            X <<= 32;
-            mpz_class mod = X % gPrimes[i+mPrimorial+bufIdx+1];
-            current[mConfig.PCOUNT*j+i] = mod.get_ui();
+            mpz_class X = 1;
+            for (unsigned j = 0; j < mConfig.N-1; j++) {
+                X <<= 32;
+                mpz_class mod = X % gPrimes[i+mPrimorial+bufIdx+1];
+                current[mConfig.PCOUNT*j+i] = mod.get_ui();
         }
     }
     
@@ -1900,24 +1900,24 @@ while(run) {
 
         if(numhash > 0){
             numhash += mLSize - numhash % mLSize;
-                    if(blockheader.nonce > (1u << 31)){
-            sha256precalcData data;
-                        blockheader.time += mThreads;
-                        blockheader.nonce = 1;
-            precalcSHA256(&blockheader, hashmod.midstate.HostData, &data);
-            OCL(hashmod.midstate.copyToDevice(mBig));
-            OCL(clSetKernelArg(mHashMod, 4, sizeof(cl_uint), &data.merkle));
-            OCL(clSetKernelArg(mHashMod, 5, sizeof(cl_uint), &data.time));
-            OCL(clSetKernelArg(mHashMod, 6, sizeof(cl_uint), &data.nbits));
-            OCL(clSetKernelArg(mHashMod, 7, sizeof(cl_uint), &data.W0));
-            OCL(clSetKernelArg(mHashMod, 8, sizeof(cl_uint), &data.W1));
-            OCL(clSetKernelArg(mHashMod, 9, sizeof(cl_uint), &data.new1_0));
-            OCL(clSetKernelArg(mHashMod, 10, sizeof(cl_uint), &data.new1_1));
-            OCL(clSetKernelArg(mHashMod, 11, sizeof(cl_uint), &data.new1_2));
-            OCL(clSetKernelArg(mHashMod, 12, sizeof(cl_uint), &data.new2_0));
-            OCL(clSetKernelArg(mHashMod, 13, sizeof(cl_uint), &data.new2_1));
-            OCL(clSetKernelArg(mHashMod, 14, sizeof(cl_uint), &data.new2_2));
-            OCL(clSetKernelArg(mHashMod, 15, sizeof(cl_uint), &data.temp2_3));          
+            if(blockheader.nonce > (1u << 31)){
+                sha256precalcData data;
+                blockheader.time += mThreads;
+                blockheader.nonce = 1;
+                precalcSHA256(&blockheader, hashmod.midstate.HostData, &data);
+                OCL(hashmod.midstate.copyToDevice(mBig));
+                OCL(clSetKernelArg(mHashMod, 4, sizeof(cl_uint), &data.merkle));
+                OCL(clSetKernelArg(mHashMod, 5, sizeof(cl_uint), &data.time));
+                OCL(clSetKernelArg(mHashMod, 6, sizeof(cl_uint), &data.nbits));
+                OCL(clSetKernelArg(mHashMod, 7, sizeof(cl_uint), &data.W0));
+                OCL(clSetKernelArg(mHashMod, 8, sizeof(cl_uint), &data.W1));
+                OCL(clSetKernelArg(mHashMod, 9, sizeof(cl_uint), &data.new1_0));
+                OCL(clSetKernelArg(mHashMod, 10, sizeof(cl_uint), &data.new1_1));
+                OCL(clSetKernelArg(mHashMod, 11, sizeof(cl_uint), &data.new1_2));
+                OCL(clSetKernelArg(mHashMod, 12, sizeof(cl_uint), &data.new2_0));
+                OCL(clSetKernelArg(mHashMod, 13, sizeof(cl_uint), &data.new2_1));
+                OCL(clSetKernelArg(mHashMod, 14, sizeof(cl_uint), &data.new2_2));
+                OCL(clSetKernelArg(mHashMod, 15, sizeof(cl_uint), &data.temp2_3));          
             }
 
             size_t globalOffset[] = { blockheader.nonce, 1u, 1u };
