@@ -464,7 +464,8 @@ int main(int argc, char **argv)
     std::string wallet = cfg->lookupString("", "wallet", "");
     LOG_F(INFO, "Solo mode - Wallet = '%s'", wallet.c_str());
     if(!wallet.size()){
-      LOG_F(WARNING, "wallet not specified in config.txt for solo mode\n");
+    LOG_F(ERROR, "wallet not specified in config.txt for solo mode\n");
+    exit(EXIT_FAILURE);
     }
   } else {
     // Using address in Pool mode
