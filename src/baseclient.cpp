@@ -468,11 +468,12 @@ int main(int argc, char **argv)
     }
   } else {
     // Using address in Pool mode
-    LOG_F(INFO, "Pool mode - Address = '%s'", gAddr.c_str());
-    if(!gAddr.size()){
-      LOG_F(ERROR, "address not specified in config.txt for pool mode\n");
-      exit(EXIT_FAILURE);
-    }
+  LOG_F(INFO, "Address = '%s'", gAddr.c_str());
+	
+	if(!gAddr.size()){
+    LOG_F(ERROR, "address not specified in config.txt\n");
+		exit(EXIT_FAILURE);
+	}
   }
 
 	gCtx = zmq_ctx_new();
@@ -488,14 +489,8 @@ int main(int argc, char **argv)
     else if (strcmp(argv[1], "-c") == 0)
       gCompatible = true;
   }
-
-  if (mode == "solo") {
 	gExit = !gClient->Initialize(cfg, benchmarkOnly);
-    // Block the main thread to prevent premature destruction
-    std::promise<void> p;
-    p.get_future().wait();
-    return 0;
-  } else {
+	
   while(!gExit){
 		gBlock.Clear();
 		proto::Reply rep;
@@ -648,7 +643,7 @@ int main(int argc, char **argv)
 		gSignals = 0;
     std::this_thread::sleep_for(std::chrono::seconds(5));
 	}
-  }
+//   }
 	
 	delete gClient;
 
