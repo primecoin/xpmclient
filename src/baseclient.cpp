@@ -13,7 +13,6 @@
 
 #include <iostream>
 #include <thread>
-#include <future>
 
 constexpr unsigned int poolMajorVersionRequired = 10;
 constexpr unsigned int poolMinorVersionRequired = 3;
