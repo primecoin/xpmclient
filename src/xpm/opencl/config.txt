@@ -2,6 +2,17 @@
 #   http://xpmforall.org
 #   http://coinsforall.io
 
+# Mining mode: "solo" for solo mining, "pool" for pool mining (default: pool)
+# Solo mining only supports opencl currently
+mode = "";
+
+# Solo mining
+rpcurl = "";
+rpcuser = "";
+rpcpass = "";
+wallet = "";
+
+# Pool mining
 server = "coinsforall.io";
 port = "6666";
 

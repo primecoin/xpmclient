@@ -213,6 +213,15 @@ PrimeSource::PrimeSource(uint32_t primesNum, unsigned inversedMultipliersNum) :
                       _primes, primesNum, inversedMultipliersNum);
 }
 
+bool sha256(void *out, const void *data, size_t size)
+{
+  SHA256_CTX ctx;
+  SHA256_Init(&ctx);
+  SHA256_Update(&ctx, data, size);
+  SHA256_Final((unsigned char*)out, &ctx);
+  return true;
+}
+
 std::string GetPrimeChainName(unsigned int nChainType, unsigned int nChainLength) {
  const std::string strLabels[5] = {"NUL", "1CC", "2CC", "TWN", "UNK"};
  char buffer[64];
