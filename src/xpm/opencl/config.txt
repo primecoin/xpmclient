@@ -3,6 +3,7 @@
 #   http://coinsforall.io
 
 # Mining mode: "solo" for solo mining, "pool" for pool mining (default: pool)
+#solomining only supports opencl
 mode = "";
 
 # Solo mining
