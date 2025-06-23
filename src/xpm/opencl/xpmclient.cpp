@@ -1815,7 +1815,7 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
             testParams.nBits = blockheader.bits;
                     
                     unsigned target = TargetGetLength(blockheader.bits);
-            LOG_F(INFO, "GPU %d: Mining target length: %u, Difficulty: %.8f", 
+            LOG_F(INFO, "GPU %d: Solo Mining target length: %u, Difficulty: %.8f", 
                     mID, target, GetPrimeDifficulty(blockheader.bits));
             
             sha256precalcData data;
@@ -2059,10 +2059,14 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
                 work.multiplier[0] = buffer[3];
                 std::reverse_copy(buffer+4, buffer+4+buffer[3], work.multiplier+1);
                 submit->submitBlock(workTemplate, work, dataId);
-                            
-                LOG_F(1, "GPU %d found share: %d-ch type %d", mID, chainlength, candi.type+1);
-                            if(isblock)
+                std::string chainName = GetPrimeChainName(testParams.nCandidateType+1,testParams.nChainLength);
+                LOG_F(1, "GPU %d found share: %s", mID, chainName.c_str());
+                if(isblock){
                     LOG_F(1, "GPU %d found BLOCK!", mID);
+                    std::string nbitsTarget =TargetToString(testParams.nBits);
+                    LOG_F(1,"Found chain:%s",chainName.c_str());
+                    LOG_F(1,"Target (nbits):%s\n----------------------------------------------------------------------",nbitsTarget.c_str());
+                };
                 }else if(chainlength < mDepth){
                 LOG_F(WARNING, "ProbablePrimeChainTestFast %ubits %d/%d", (unsigned)mpz_sizeinbase(chainorg.get_mpz_t(), 2), chainlength, mDepth);
                 LOG_F(WARNING, "origin: %s", chainorg.get_str().c_str());
