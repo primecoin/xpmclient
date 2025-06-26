@@ -456,12 +456,25 @@ int main(int argc, char **argv)
 
   LOG_F(INFO, "xpmclient-%u.%u.%u", gClientVersion / 100, (gClientVersion % 100) / 10, (gClientVersion % 100) % 10);
   LOG_F(INFO, "ClientName = '%s'  ClientID = %u  InstanceID = %u", gClientName.c_str(), gClientID, gInstanceID);
+  
+  std::string mode = cfg->lookupString("", "mode", "pool");
+  if (mode == "solo") {
+    // Using wallet address in Solo mode
+    std::string wallet = cfg->lookupString("", "wallet", "");
+    LOG_F(INFO, "Solo mode - Wallet = '%s'", wallet.c_str());
+    if(!wallet.size()){
+    LOG_F(ERROR, "wallet not specified in config.txt for solo mode\n");
+    exit(EXIT_FAILURE);
+    }
+  } else {
+    // Using address in Pool mode
   LOG_F(INFO, "Address = '%s'", gAddr.c_str());
 	
 	if(!gAddr.size()){
     LOG_F(ERROR, "address not specified in config.txt\n");
 		exit(EXIT_FAILURE);
 	}
+  }
 
 	gCtx = zmq_ctx_new();
 	gWorkers = zmq_socket(gCtx, ZMQ_PULL);
@@ -663,7 +676,7 @@ int main(int argc, char **argv)
     loguru::shutdown();
     
     if (cfg)
-        delete cfg;
+        cfg->destroy();
 
     // Cleanup static variables
     gCtx = nullptr;

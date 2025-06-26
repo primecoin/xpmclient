@@ -8,7 +8,7 @@
 #ifndef XPMCLIENT_H_
 #define XPMCLIENT_H_
 
-
+#include <thread>
 #include <gmp.h>
 #include <gmpxx.h>
 
@@ -219,8 +219,9 @@ private:
                       uint64_t &fermatCount,
                       cl_kernel fermatKernel,
                       unsigned sievePerRound);
-  
+	friend class MiningNode;
 	void Mining(void *ctx, void *pipe);
+  void SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit);
 	
 	unsigned mID;
 	unsigned mThreads;
@@ -247,8 +248,7 @@ private:
   info_t final;	
 };
 
-
-
+class MiningNode;
 
 class XPMClient : public BaseClient {
 public:
@@ -269,6 +269,12 @@ private:
 	bool clKernelTargetAutoAdjust;
 	
   std::vector<std::pair<PrimeMiner*, void*> > mWorkers;
+  std::unique_ptr<MiningNode> _node;
+
+  // OpenCL context and related resources in Solo mode
+  cl_context _soloContext = nullptr;
+  cl_device_id _soloDevice = nullptr;
+  openclPrograms _soloPrograms = {};
 
   bool checkProgramKernelConfig(const char *kernelName,
                                 cl_context context,
@@ -285,6 +291,29 @@ private:
                           std::ostream &file,
                           bool isGCN);
 
+};
+
+class MiningNode {
+public:
+  MiningNode(Configuration* cfg, PrimeMiner* miner);
+  ~MiningNode();
+
+  bool Start();
+  void AssignMiner(PrimeMiner* miner);
+private:
+  void RunLoop();
+
+  GetBlockTemplateContext* _gbtCtx;
+  SubmitContext*          _submitCtx;
+  PrimeMiner*             _miner;
+  std::thread             _thread;
+
+  std::string             _url;
+  std::string             _user;
+  std::string             _password;
+  std::string             _wallet;
+
+  friend class PrimeMiner;
 };
 
 #endif /* XPMCLIENT_H_ */
