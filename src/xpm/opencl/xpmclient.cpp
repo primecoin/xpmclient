@@ -2041,7 +2041,8 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
                 bool isblock = ProbablePrimeChainTestFast(chainorg, testParams, mDepth);
                 unsigned chainlength = TargetGetLength(testParams.nChainLength);
                 if(testParams.nChainLength >= blockheader.bits){
-                printf("\ncandis[%d] = %s, chainlength %u\n", i, chainorg.get_str(10).c_str(), chainlength);
+                std::string chainName = GetPrimeChainName(testParams.nCandidateType+1,testParams.nChainLength);
+                printf("\ncandis[%d] = %s, chainlength: %s\n", i, chainorg.get_str(10).c_str(), chainName.c_str());
                 PrimecoinBlockHeader work;
                 work.version = blockheader.version;
                 char blkhex[128];
@@ -2059,13 +2060,11 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
                 work.multiplier[0] = buffer[3];
                 std::reverse_copy(buffer+4, buffer+4+buffer[3], work.multiplier+1);
                 submit->submitBlock(workTemplate, work, dataId);
-                std::string chainName = GetPrimeChainName(testParams.nCandidateType+1,testParams.nChainLength);
-                LOG_F(1, "GPU %d found share: %s", mID, chainName.c_str());
                 if(isblock){
                     LOG_F(1, "GPU %d found BLOCK!", mID);
                     std::string nbitsTarget =TargetToString(testParams.nBits);
-                    LOG_F(1,"Found chain:%s",chainName.c_str());
-                    LOG_F(1,"Target (nbits):%s\n----------------------------------------------------------------------",nbitsTarget.c_str());
+                    LOG_F(1,"Found chain: %s",chainName.c_str());
+                    LOG_F(1,"Target (nbits): %s\n----------------------------------------------------------------------",nbitsTarget.c_str());
                 };
                 }else if(chainlength < mDepth){
                 LOG_F(WARNING, "ProbablePrimeChainTestFast %ubits %d/%d", (unsigned)mpz_sizeinbase(chainorg.get_mpz_t(), 2), chainlength, mDepth);
