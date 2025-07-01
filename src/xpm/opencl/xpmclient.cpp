@@ -2040,9 +2040,9 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
                 testParams.nCandidateType = candi.type;
                 bool isblock = ProbablePrimeChainTestFast(chainorg, testParams, mDepth);
                 unsigned chainlength = TargetGetLength(testParams.nChainLength);
-                if(testParams.nChainLength >= blockheader.bits){
                 std::string chainName = GetPrimeChainName(testParams.nCandidateType+1,testParams.nChainLength);
-                printf("\ncandis[%d] = %s, chainlength:%s\n", i, chainorg.get_str(10).c_str(), chainName.c_str());
+                if(testParams.nChainLength >= blockheader.bits){
+                printf("\ncandis[%d] = %s, chainlength: %s\n", i, chainorg.get_str(10).c_str(), chainName.c_str());
                 PrimecoinBlockHeader work;
                 work.version = blockheader.version;
                 char blkhex[128];
@@ -2063,13 +2063,11 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
                 if(isblock){
                     LOG_F(1, "GPU %d found BLOCK!", mID);
                     std::string nbitsTarget =TargetToString(testParams.nBits);
-                    LOG_F(1,"Found chain:%s",chainName.c_str());
-                    LOG_F(1,"Target (nbits):%s\n----------------------------------------------------------------------",nbitsTarget.c_str());
+                    LOG_F(1,"Found chain: %s",chainName.c_str());
+                    LOG_F(1,"Target (nbits): %s\n----------------------------------------------------------------------",nbitsTarget.c_str());
                 };
                 }else if(chainlength < mDepth){
-                LOG_F(WARNING, "ProbablePrimeChainTestFast %ubits %d/%d", (unsigned)mpz_sizeinbase(chainorg.get_mpz_t(), 2), chainlength, mDepth);
-                }else if(chainlength < mDepth){
-                LOG_F(WARNING, "ProbablePrimeChainTestFast %ubits %d/%d", (unsigned)mpz_sizeinbase(chainorg.get_mpz_t(), 2), chainlength, mDepth);
+                LOG_F(WARNING, "ProbablePrimeChainTestFast %ubits %d/%d", (unsigned)mpz_sizeinbase(chainorg.get_mpz_t(), 2), chainlength, mDepth);                
                 LOG_F(WARNING, "origin: %s", chainorg.get_str().c_str());
                 LOG_F(WARNING, "type: %u", (unsigned)candi.type);
                 LOG_F(WARNING, "multiplier: %u", (unsigned)candi.index);
