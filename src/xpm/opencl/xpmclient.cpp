@@ -2042,7 +2042,7 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
                 unsigned chainlength = TargetGetLength(testParams.nChainLength);
                 std::string chainName = GetPrimeChainName(testParams.nCandidateType+1,testParams.nChainLength);
                 if(testParams.nChainLength >= blockheader.bits){
-                printf("\ncandis[%d] = %s, chainlength: %s\n", i, chainorg.get_str(10).c_str(), chainName.c_str());
+                printf("\ncandis[%d] = %s, chainName: %s\n", i, chainorg.get_str(10).c_str(), chainName.c_str());
                 PrimecoinBlockHeader work;
                 work.version = blockheader.version;
                 char blkhex[128];
