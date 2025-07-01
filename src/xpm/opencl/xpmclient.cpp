@@ -2067,7 +2067,7 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
                     LOG_F(1,"Target (nbits):%s\n----------------------------------------------------------------------",nbitsTarget.c_str());
                 };
                 }else if(chainlength < mDepth){
-                LOG_F(WARNING, "ProbablePrimeChainTestFast %ubits %d/%d", (unsigned)mpz_sizeinbase(chainorg.get_mpz_t(), 2), chainlength, mDepth);                
+                LOG_F(WARNING, "ProbablePrimeChainTestFast %ubits %d/%d", (unsigned)mpz_sizeinbase(chainorg.get_mpz_t(), 2), chainlength, mDepth);
                 LOG_F(WARNING, "origin: %s", chainorg.get_str().c_str());
                 LOG_F(WARNING, "type: %u", (unsigned)candi.type);
                 LOG_F(WARNING, "multiplier: %u", (unsigned)candi.index);
