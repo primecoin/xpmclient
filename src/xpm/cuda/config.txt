@@ -2,6 +2,16 @@
 #   http://xpmforall.org
 #   http://coinsforall.io
 
+# Mining mode: "solo" for solo mining, "pool" for pool mining (default: pool)
+mode = "solo";
+
+#solo mining
+rpcurl = "127.0.0.1:9912";
+rpcuser = "danjuan";
+rpcpass = "2001danjuan";
+wallet = "muwMNdhSsxc5dU2VmjRoADZrmhhb1AtcpZ";
+
+#pool mining
 server = "coinsforall.io";
 port = "6666";
 
