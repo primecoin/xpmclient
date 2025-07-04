@@ -197,6 +197,9 @@ if (CUDA_FOUND)
     zmqextras.cpp
     xpm/cuda/xpmclient.cpp
     xpm/cuda/benchmarks.cpp
+    xpm/rpc/common/getblocktemplate.cpp
+    xpm/rpc/common/primecoin.cpp
+    xpm/rpc/common/system.cpp
     ${ProtoSources}
   )
 
@@ -204,9 +207,22 @@ if (CUDA_FOUND)
     ${CMAKE_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/xpm/cuda
     ${CUDA_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/xpm/rpc/blkmaker
+    ${CMAKE_SOURCE_DIR}/xpm/rpc/common
+    ${CMAKE_SOURCE_DIR}/xpm/rpc/include
   )
 
-  target_link_libraries(xpmclientnv ${LIBRARIES} ${CUDA_driver_LIBRARY} ${CUDA_nvrtc_LIBRARY})
+  target_link_libraries(xpmclientnv 
+    ${LIBRARIES}
+    ${CUDA_driver_LIBRARY} 
+    ${CUDA_nvrtc_LIBRARY}
+    blkmaker
+    curl
+    jansson
+    crypto
+    ssl
+    stdc++
+  )
   
   if (STATIC_BUILD)
     set_target_properties(xpmclientnv PROPERTIES LINK_SEARCH_END_STATIC 1)
