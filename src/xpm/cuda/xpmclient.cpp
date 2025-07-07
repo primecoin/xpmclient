@@ -308,7 +308,6 @@ void PrimeMiner::Mining(void *ctx, void *pipe) {
   cudaBuffer<uint32_t> candidatesCountBuffers[SW][2];
   pipeline_t fermat320;
   pipeline_t fermat352;
-  info_t final;
 	CPrimalityTestParams testParams;
 	std::vector<fermat_t> candis;
   unsigned numHashCoeff = 32768;
