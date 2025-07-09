@@ -1319,7 +1319,7 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
         CUDA_SAFE_CALL(primeBuf2[i].copyToDevice(&gPrimes2[2*(mPrimorial+i)+2]));
         mpz_class p = 1;
         for(unsigned j = 0; j <= mPrimorial+i; j++)
-        p *= gPrimes[j];    
+            p *= gPrimes[j];    
         primorial[i] = p;
     }  
 
