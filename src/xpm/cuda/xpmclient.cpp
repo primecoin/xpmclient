@@ -1357,7 +1357,7 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
     CUDA_SAFE_CALL(final.count.init(1, false));	 // CL_MEM_ALLOC_HOST_PTR
 
     FermatInit(fermat320, MFS);
-    FermatInit(fermat352, MFS);    
+    FermatInit(fermat352, MFS);
 
     cudaBuffer<uint32_t> modulosBuf[maxHashPrimorial];
     unsigned modulosBufferSize = mConfig.PCOUNT*(mConfig.N-1);   
@@ -1381,7 +1381,7 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
         {
             time_t currtime = time(0);
             time_t elapsed = currtime - time1;
-            if(elapsed > 11){                      
+            if(elapsed > 11){
                 time1 = currtime;
             }
             
@@ -1419,7 +1419,7 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
             fermat320.buffer[1].count[0] = 0;
             fermat352.bsize = 0;
             fermat352.buffer[0].count[0] = 0;
-            fermat352.buffer[1].count[0] = 0;      
+            fermat352.buffer[1].count[0] = 0;
             final.count[0] = 0;
         
             for(int sieveIdx = 0; sieveIdx < SW; ++sieveIdx) {
@@ -1464,11 +1464,11 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
                 }      
                 
                 mpz_class mpzRealPrimorial;        
-                mpz_import(mpzRealPrimorial.get_mpz_t(), 2, -1, 4, 0, 0, &realPrimorial);            
+                mpz_import(mpzRealPrimorial.get_mpz_t(), 2, -1, 4, 0, 0, &realPrimorial);
                 primorialIdx = std::max(mPrimorial, primorialIdx) - mPrimorial;
                 mpz_class mpzHashMultiplier = primorial[primorialIdx] / mpzRealPrimorial;
-                unsigned hashMultiplierSize = mpz_sizeinbase(mpzHashMultiplier.get_mpz_t(), 2);      
-                mpz_import(mpzRealPrimorial.get_mpz_t(), 2, -1, 4, 0, 0, &realPrimorial);        
+                unsigned hashMultiplierSize = mpz_sizeinbase(mpzHashMultiplier.get_mpz_t(), 2);
+                mpz_import(mpzRealPrimorial.get_mpz_t(), 2, -1, 4, 0, 0, &realPrimorial);
                         
                 block_t b = blockheader;
                 b.nonce = hash.nonce;
@@ -1497,7 +1497,7 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
                         
                 hash.primorialIdx = primorialIdx;
                 hash.primorial = mpzHashMultiplier;
-                hash.shash = mpzHash * hash.primorial;       
+                hash.shash = mpzHash * hash.primorial;
 
                 unsigned hid = hashes.push(hash);
                 memset(&hashBuf[hid*mConfig.N], 0, sizeof(uint32_t)*mConfig.N);
@@ -1544,7 +1544,7 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
                 };
             
                 CUDA_SAFE_CALL(cuLaunchKernel(mHashMod,
-                                            numhash/mLSize, 1, 1,                                
+                                            numhash/mLSize, 1, 1,
                                             mLSize, 1, 1,
                                             0, mHMFermatStream, arguments, 0));
                 
@@ -1566,7 +1566,7 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
             }
         
             int hid = hashes.pop();
-            unsigned primorialIdx = hashes.get(hid).primorialIdx;    
+            unsigned primorialIdx = hashes.get(hid).primorialIdx;
             
             CUDA_SAFE_CALL(candidatesCountBuffers[i][widx].copyToDevice(mSieveStream));
             
@@ -1581,9 +1581,9 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
                 };
                 
                 CUDA_SAFE_CALL(cuLaunchKernel(mSieveSetup,
-                                                mConfig.PCOUNT/mLSize, 1, 1,                                
+                                                mConfig.PCOUNT/mLSize, 1, 1,
                                                 mLSize, 1, 1,
-                                                0, mSieveStream, arguments, 0));          
+                                                0, mSieveStream, arguments, 0));
             }
 
             {
@@ -1594,7 +1594,7 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
                 };
             
                 CUDA_SAFE_CALL(cuLaunchKernel(mSieve,
-                                                mConfig.STRIPES/2, mConfig.WIDTH, 1,                                
+                                                mConfig.STRIPES/2, mConfig.WIDTH, 1,
                                                 mLSize, 1, 1,
                                                 0, mSieveStream, arguments, 0));
             }
@@ -1703,9 +1703,9 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
                 testParams.nCandidateType = candi.type;
                 bool isblock = ProbablePrimeChainTestFast(chainorg, testParams, mDepth);
                 unsigned chainlength = TargetGetLength(testParams.nChainLength);
-
+                std::string chainName = GetPrimeChainName(testParams.nCandidateType+1,testParams.nChainLength);
                 if(testParams.nChainLength >= blockheader.bits){
-                    printf("\ncandis[%d] = %s, chainlength %u\n", i, chainorg.get_str(10).c_str(), chainlength);
+                    printf("\ncandis[%d] = %s, chainName %s\n", i, chainorg.get_str(10).c_str(), chainName.c_str());
                     PrimecoinBlockHeader work;
                     work.version = blockheader.version;
                     char blkhex[128];
@@ -1723,8 +1723,6 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
                     work.multiplier[0] = buffer[3];
                     std::reverse_copy(buffer+4, buffer+4+buffer[3], work.multiplier+1);
                     submit->submitBlock(workTemplate, work, dataId);
-                    std::string chainName = GetPrimeChainName(testParams.nCandidateType+1,testParams.nChainLength);
-                    LOG_F(1, "GPU %d found share: %s", mID, chainName.c_str());
                     if(isblock){
                         LOG_F(1, "GPU %d found BLOCK!", mID);
                         std::string nbitsTarget =TargetToString(testParams.nBits);
