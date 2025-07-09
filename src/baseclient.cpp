@@ -50,11 +50,17 @@ static std::map<unsigned, shareData> gSharesSent;
 static std::map<unsigned, share_t> gShares;
 static BaseClient *gClient;
 
+static std::string gMode = "pool";
+static std::string gRpcUrl = "127.0.0.1:9912";
 
 static bool ConnectBitcoin() {
 	
 	const proto::ServerInfo& sinfo = gServerInfo;
-  LOG_F(INFO, "Connecting to bitcoin: %s:%d ...", sinfo.host().c_str(), sinfo.router());
+    if (gMode == "solo") {
+        LOG_F(INFO, "Connecting to rpc node: %s ...", gRpcUrl.c_str());
+    } else {
+        LOG_F(INFO, "Connecting to bitcoin: %s:%d ...", sinfo.host().c_str(), sinfo.router());
+    }
 	int linger = 0;
 	char endpoint[256];
 	snprintf(endpoint, sizeof(endpoint), "tcp://%s:%d", sinfo.host().c_str(), sinfo.router());	
@@ -91,7 +97,11 @@ static bool ConnectBitcoin() {
 static bool ConnectSignals() {
 	
 	const proto::ServerInfo& sinfo = gServerInfo;
-  LOG_F(INFO, "Connecting to signals: %s:%d ...", sinfo.host().c_str(), sinfo.pub());
+    if (gMode == "solo") {
+        LOG_F(INFO, "Connecting to rpc node signals: %s ...", gRpcUrl.c_str());
+    } else {
+        LOG_F(INFO, "Connecting to signals: %s:%d ...", sinfo.host().c_str(), sinfo.pub());
+    }
 	int linger = 0;
 	char endpoint[256];
 	snprintf(endpoint, sizeof(endpoint), "tcp://%s:%d", sinfo.host().c_str(), sinfo.pub());
@@ -183,9 +193,10 @@ static void HandleNewBlock(const proto::Block& block, bool requestWork=true) {
 
 
 static bool HandleNewWork(const proto::Work& work) {
-  LOG_F(INFO, "Work received: height=%d diff=%.8g",
-      work.height(), GetPrimeDifficulty(work.bits()));
-	
+    if (gMode == "pool") {
+        LOG_F(INFO, "Work received: height=%d diff=%.8g",
+        work.height(), GetPrimeDifficulty(work.bits()));
+    }
 	return gClient->TakeWork(work);
 	
 }
@@ -458,6 +469,8 @@ int main(int argc, char **argv)
   LOG_F(INFO, "ClientName = '%s'  ClientID = %u  InstanceID = %u", gClientName.c_str(), gClientID, gInstanceID);
   
   std::string mode = cfg->lookupString("", "mode", "pool");
+  gMode = mode;
+  gRpcUrl = cfg->lookupString("", "rpcurl", "127.0.0.1:9912");
   if (mode == "solo") {
     // Using wallet address in Solo mode
     std::string wallet = cfg->lookupString("", "wallet", "");
@@ -496,7 +509,11 @@ int main(int argc, char **argv)
 		proto::Reply rep;
 
     bool frontendConnected = false;
-    LOG_F(INFO, "Connecting to frontend: %s:%d ...", frontHost.c_str(), frontPort);
+    if (gMode == "pool") {
+      LOG_F(INFO, "Connecting to frontend: %s:%d ...", frontHost.c_str(), frontPort);
+    } else {
+      LOG_F(INFO, "Connecting to rpc node: %s ...", gRpcUrl.c_str());
+    }
 
     while (!frontendConnected) {
       int result;

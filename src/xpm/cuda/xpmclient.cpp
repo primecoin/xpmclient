@@ -1230,8 +1230,6 @@ MiningNode::MiningNode(Configuration* cfg, PrimeMiner* miner)
   unsigned blocksNum  = cfg->lookupInt("", "threadsNum", 1);
   unsigned extraNonce = cfg->lookupInt("", "extraNonce", 0);
 
-  LOG_F(INFO, "Creating GetBlockTemplateContext with URL: '%s', user: '%s'", _url.c_str(), _user.c_str());
-
   _gbtCtx    = new GetBlockTemplateContext(0, _url.c_str(), _user.c_str(), _password.c_str(), _wallet.c_str(), timeout, blocksNum, extraNonce);
   _submitCtx = new SubmitContext(0, _url.c_str(), _user.c_str(), _password.c_str());
 }
@@ -1441,6 +1439,8 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
             testParams.nBits = blockheader.bits;
             
             unsigned target = TargetGetLength(blockheader.bits);
+            LOG_F(INFO, "GPU %d: Solo Mining target length: %u, Difficulty: %.8f",
+                    mID, target, GetPrimeDifficulty(blockheader.bits));
             precalcSHA256(&blockheader, hashmod.midstate._hostData, &precalcData);
             hashmod.count[0] = 0;
             CUDA_SAFE_CALL(hashmod.midstate.copyToDevice(mHMFermatStream));
@@ -1508,7 +1508,7 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
                     CUDA_SAFE_CALL(hashBuf.copyToDevice(mSieveStream));
                 
                 //printf("hashlist.size() = %d\n", (int)hashlist.size());
-                hashmod.count[0] = 0;
+            hashmod.count[0] = 0;
                 
             int numhash = ((int)(16*mSievePerRound) - (int)hashes.remaining()) * numHashCoeff;
 

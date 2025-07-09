@@ -1798,8 +1798,8 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
         
             for(int sieveIdx = 0; sieveIdx < SW; ++sieveIdx) {
                 for(int instIdx = 0; instIdx < 2; ++instIdx) {
-                for (int pipelineIdx = 0; pipelineIdx < FERMAT_PIPELINES; pipelineIdx++)
-                    (candidatesCountBuffers[sieveIdx][instIdx])[pipelineIdx] = 0;
+                    for (int pipelineIdx = 0; pipelineIdx < FERMAT_PIPELINES; pipelineIdx++)
+                        (candidatesCountBuffers[sieveIdx][instIdx])[pipelineIdx] = 0;
                 }
             }
                 
@@ -1814,7 +1814,7 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
             blockheader.nonce = 1;
             testParams.nBits = blockheader.bits;
                     
-                    unsigned target = TargetGetLength(blockheader.bits);
+            unsigned target = TargetGetLength(blockheader.bits);
             LOG_F(INFO, "GPU %d: Solo Mining target length: %u, Difficulty: %.8f", 
                     mID, target, GetPrimeDifficulty(blockheader.bits));
             
@@ -2067,22 +2067,22 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
                     LOG_F(1,"Target (nbits):%s\n----------------------------------------------------------------------",nbitsTarget.c_str());
                 };
                 }else if(chainlength < mDepth){
-                LOG_F(WARNING, "ProbablePrimeChainTestFast %ubits %d/%d", (unsigned)mpz_sizeinbase(chainorg.get_mpz_t(), 2), chainlength, mDepth);
-                LOG_F(WARNING, "origin: %s", chainorg.get_str().c_str());
-                LOG_F(WARNING, "type: %u", (unsigned)candi.type);
-                LOG_F(WARNING, "multiplier: %u", (unsigned)candi.index);
-                LOG_F(WARNING, "layer: %u", (unsigned)candi.origin);
-                LOG_F(WARNING, "hash primorial: %s", hash.primorial.get_str().c_str());
-                LOG_F(WARNING, "primorial multipliers: ");
+                    LOG_F(WARNING, "ProbablePrimeChainTestFast %ubits %d/%d", (unsigned)mpz_sizeinbase(chainorg.get_mpz_t(), 2), chainlength, mDepth);
+                    LOG_F(WARNING, "origin: %s", chainorg.get_str().c_str());
+                    LOG_F(WARNING, "type: %u", (unsigned)candi.type);
+                    LOG_F(WARNING, "multiplier: %u", (unsigned)candi.index);
+                    LOG_F(WARNING, "layer: %u", (unsigned)candi.origin);
+                    LOG_F(WARNING, "hash primorial: %s", hash.primorial.get_str().c_str());
+                    LOG_F(WARNING, "primorial multipliers: ");
                     for (unsigned i = 0; i < mPrimorial;) {
                         if (hash.primorial % gPrimes[i] == 0) {
-                        hash.primorial /= gPrimes[i];
-                        LOG_F(WARNING, " * [%u]%u", i+1, gPrimes[i]);
+                            hash.primorial /= gPrimes[i];
+                            LOG_F(WARNING, " * [%u]%u", i+1, gPrimes[i]);
                         } else {
                             i++;
                         }
                     }
-                stats.errors++;
+                    stats.errors++;
                 }
             }
         }
