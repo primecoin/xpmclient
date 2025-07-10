@@ -1745,7 +1745,7 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
                             i++;
                         }
                     }
-                                stats.errors++;
+                    stats.errors++;
                 }
             }
         }
