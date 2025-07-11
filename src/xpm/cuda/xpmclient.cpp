@@ -1681,7 +1681,6 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
         
         // check candis
         if(candis.size()){
-            // printf("checking %d candis\n", (int)candis.size());
             mpz_class chainorg;
             mpz_class multi;
             for(unsigned i = 0; i < candis.size(); ++i){
