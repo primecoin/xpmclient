@@ -8,7 +8,7 @@
 #ifndef XPMCLIENT_H_
 #define XPMCLIENT_H_
 
-
+#include <thread>
 #include <gmp.h>
 #include <gmpxx.h>
 
@@ -16,6 +16,7 @@
 #include "cudautil.h"
 #include "uint256.h"
 #include "sha256.h"
+#include "getblocktemplate.h"
 
 #define FERMAT_PIPELINES 2
 
@@ -196,8 +197,9 @@ private:
                       uint64_t &fermatCount,
                       CUfunction fermatKernel,
                       unsigned sievePerRound);  
-  
+    friend class MiningNode;
 	void Mining(void *ctx, void *pipe);
+  void SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit);
 	
 	unsigned mID;
 	unsigned mThreads;
@@ -224,7 +226,7 @@ private:
   cudaBuffer<uint32_t> hashBuf;
 };
 
-
+class MiningNode;
 
 
 class XPMClient : public BaseClient {
@@ -246,6 +248,7 @@ private:
 	bool clKernelTargetAutoAdjust;
 	
   std::vector<std::pair<PrimeMiner*, void*> > mWorkers;
+  std::unique_ptr<MiningNode> _node;
 
   void dumpSieveConstants(unsigned weaveDepth,
                           unsigned threadsNum,
@@ -253,6 +256,29 @@ private:
                           unsigned *primes,
                           std::ostream &file);
 	
+};
+
+class MiningNode {
+public:
+  MiningNode(Configuration* cfg, PrimeMiner* miner);
+  ~MiningNode();
+
+  bool Start();
+  void AssignMiner(PrimeMiner* miner);
+private:
+  void RunLoop();
+
+  GetBlockTemplateContext* _gbtCtx;
+  SubmitContext*          _submitCtx;
+  PrimeMiner*             _miner;
+  std::thread             _thread;
+
+  std::string             _url;
+  std::string             _user;
+  std::string             _password;
+  std::string             _wallet;
+
+  friend class PrimeMiner;
 };
 
 #endif /* XPMCLIENT_H_ */

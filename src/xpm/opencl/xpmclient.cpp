@@ -1576,49 +1576,49 @@ void XPMClient::Toggle()
 }
 
 MiningNode::MiningNode(Configuration* cfg, PrimeMiner* miner)
-  : _miner(miner)
+    : _miner(miner)
 {
-  int cpuload = cfg->lookupInt("", "cpuload", 1);
-  _url      = cfg->lookupString("", "rpcurl", "127.0.0.1:9912");
-  _user     = cfg->lookupString("", "rpcuser", "");
-  _password = cfg->lookupString("", "rpcpass", "");
-  _wallet   = cfg->lookupString("", "wallet", "");
+    int cpuload = cfg->lookupInt("", "cpuload", 1);
+    _url      = cfg->lookupString("", "rpcurl", "127.0.0.1:9912");
+    _user     = cfg->lookupString("", "rpcuser", "");
+    _password = cfg->lookupString("", "rpcpass", "");
+    _wallet   = cfg->lookupString("", "wallet", "");
 
-  unsigned timeout    = cfg->lookupInt("", "timeout",   4);
-  unsigned blocksNum  = cfg->lookupInt("", "threadsNum", 1);
-  unsigned extraNonce = cfg->lookupInt("", "extraNonce", 0);
+    unsigned timeout    = cfg->lookupInt("", "timeout",   4);
+    unsigned blocksNum  = cfg->lookupInt("", "threadsNum", 1);
+    unsigned extraNonce = cfg->lookupInt("", "extraNonce", 0);
 
-  LOG_F(INFO, "Creating GetBlockTemplateContext with URL: '%s', user: '%s'", _url.c_str(), _user.c_str());
+    LOG_F(INFO, "Creating GetBlockTemplateContext with URL: '%s', user: '%s'", _url.c_str(), _user.c_str());
 
-  _gbtCtx    = new GetBlockTemplateContext(0, _url.c_str(), _user.c_str(), _password.c_str(), _wallet.c_str(), timeout, blocksNum, extraNonce);
-  _submitCtx = new SubmitContext(0, _url.c_str(), _user.c_str(), _password.c_str());
+    _gbtCtx    = new GetBlockTemplateContext(0, _url.c_str(), _user.c_str(), _password.c_str(), _wallet.c_str(), timeout, blocksNum, extraNonce);
+    _submitCtx = new SubmitContext(0, _url.c_str(), _user.c_str(), _password.c_str());
 }
 
 void MiningNode::AssignMiner(PrimeMiner* miner) {
-  _miner = miner;
+    _miner = miner;
 }
 
 MiningNode::~MiningNode() {
-  delete _gbtCtx;
-  delete _submitCtx;
-  delete _miner;
+    delete _gbtCtx;
+    delete _submitCtx;
+    delete _miner;
 }
 
 bool MiningNode::Start() {
-  LOG_F(INFO, "Starting GetBlockTemplate context...");
-  _gbtCtx->run();
-  LOG_F(INFO, "GetBlockTemplate context started successfully");
+    LOG_F(INFO, "Starting GetBlockTemplate context...");
+    _gbtCtx->run();
+    LOG_F(INFO, "GetBlockTemplate context started successfully");
   
-  try {
-      LOG_F(INFO, "Starting solo mining thread...");
-      _thread = std::thread(&MiningNode::RunLoop, this);
-      _thread.detach();
-      LOG_F(INFO, "Solo mining thread started successfully");
-      return true;
-  } catch (const ConfigurationException& ex) {
-      LOG_F(ERROR, "Failed to start solo mining thread: %s", ex.c_str());
-      return false;
-  }
+    try {
+        LOG_F(INFO, "Starting solo mining thread...");
+        _thread = std::thread(&MiningNode::RunLoop, this);
+        _thread.detach();
+        LOG_F(INFO, "Solo mining thread started successfully");
+        return true;
+    } catch (const ConfigurationException& ex) {
+        LOG_F(ERROR, "Failed to start solo mining thread: %s", ex.c_str());
+        return false;
+    }
 }
 
 void MiningNode::RunLoop() {
@@ -1798,8 +1798,8 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
         
             for(int sieveIdx = 0; sieveIdx < SW; ++sieveIdx) {
                 for(int instIdx = 0; instIdx < 2; ++instIdx) {
-                for (int pipelineIdx = 0; pipelineIdx < FERMAT_PIPELINES; pipelineIdx++)
-                    (candidatesCountBuffers[sieveIdx][instIdx])[pipelineIdx] = 0;
+                    for (int pipelineIdx = 0; pipelineIdx < FERMAT_PIPELINES; pipelineIdx++)
+                        (candidatesCountBuffers[sieveIdx][instIdx])[pipelineIdx] = 0;
                 }
             }
                 
@@ -1814,7 +1814,7 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
             blockheader.nonce = 1;
             testParams.nBits = blockheader.bits;
                     
-                    unsigned target = TargetGetLength(blockheader.bits);
+            unsigned target = TargetGetLength(blockheader.bits);
             LOG_F(INFO, "GPU %d: Solo Mining target length: %u, Difficulty: %.8f", 
                     mID, target, GetPrimeDifficulty(blockheader.bits));
             
@@ -2067,22 +2067,22 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
                     LOG_F(1,"Target (nbits):%s\n----------------------------------------------------------------------",nbitsTarget.c_str());
                 };
                 }else if(chainlength < mDepth){
-                LOG_F(WARNING, "ProbablePrimeChainTestFast %ubits %d/%d", (unsigned)mpz_sizeinbase(chainorg.get_mpz_t(), 2), chainlength, mDepth);
-                LOG_F(WARNING, "origin: %s", chainorg.get_str().c_str());
-                LOG_F(WARNING, "type: %u", (unsigned)candi.type);
-                LOG_F(WARNING, "multiplier: %u", (unsigned)candi.index);
-                LOG_F(WARNING, "layer: %u", (unsigned)candi.origin);
-                LOG_F(WARNING, "hash primorial: %s", hash.primorial.get_str().c_str());
-                LOG_F(WARNING, "primorial multipliers: ");
+                    LOG_F(WARNING, "ProbablePrimeChainTestFast %ubits %d/%d", (unsigned)mpz_sizeinbase(chainorg.get_mpz_t(), 2), chainlength, mDepth);
+                    LOG_F(WARNING, "origin: %s", chainorg.get_str().c_str());
+                    LOG_F(WARNING, "type: %u", (unsigned)candi.type);
+                    LOG_F(WARNING, "multiplier: %u", (unsigned)candi.index);
+                    LOG_F(WARNING, "layer: %u", (unsigned)candi.origin);
+                    LOG_F(WARNING, "hash primorial: %s", hash.primorial.get_str().c_str());
+                    LOG_F(WARNING, "primorial multipliers: ");
                     for (unsigned i = 0; i < mPrimorial;) {
                         if (hash.primorial % gPrimes[i] == 0) {
-                        hash.primorial /= gPrimes[i];
-                        LOG_F(WARNING, " * [%u]%u", i+1, gPrimes[i]);
+                            hash.primorial /= gPrimes[i];
+                            LOG_F(WARNING, " * [%u]%u", i+1, gPrimes[i]);
                         } else {
                             i++;
                         }
                     }
-                stats.errors++;
+                    stats.errors++;
                 }
             }
         }

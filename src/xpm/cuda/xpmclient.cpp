@@ -10,6 +10,9 @@
 #include "xpmclient.h"
 #include "prime.h"
 #include "benchmarks.h"
+#include "primecoin.h"
+#include <openssl/bn.h>
+#include <openssl/sha.h>
 
 extern "C" {
 	#include "adl.h"
@@ -26,9 +29,23 @@ extern "C" {
 #endif  
 
 #include <math.h>
+#include <thread>
 
 std::vector<unsigned> gPrimes;
 std::vector<unsigned> gPrimes2;
+
+void _blkmk_bin2hex(char *out, void *data, size_t datasz) {
+  unsigned char *datac = (unsigned char *)data;
+  static char hex[] = "0123456789abcdef";
+  out[datasz * 2] = '\0';
+  for (size_t i = 0; i < datasz; ++i)
+  {
+    int j = datasz -1 - i;
+    out[ j*2   ] = hex[datac[i] >> 4];
+    out[(j*2)+1] = hex[datac[i] & 15];
+  }
+
+}
 
 double GetPrimeDifficulty(unsigned int nBits)
 {
@@ -800,6 +817,10 @@ void XPMClient::dumpSieveConstants(unsigned weaveDepth,
 }
 
 bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adjustedKernelTarget) {
+
+  std::string mode = cfg->lookupString("", "mode", "pool");
+  blkmk_sha256_impl = sha256;
+
   _cfg = cfg;
 
   unsigned clKernelPCount = cfg->lookupInt("", "weaveDepth", 40960);
@@ -990,6 +1011,22 @@ bool XPMClient::Initialize(Configuration* cfg, bool benchmarkOnly, unsigned adju
     
     return false;
   } else {
+    if (mode == "solo") {
+        PrimeMiner* miner = new PrimeMiner(0, 1, sievePerRound[0], depth, clKernelLSize);
+        if (!miner->Initialize(gpus[0].context, gpus[0].device, modules[0])) {
+            LOG_F(ERROR, "Failed to initialize PrimeMiner");
+            delete miner;
+            return false;
+        }
+        _node = std::make_unique<MiningNode>(cfg, miner);
+        if (!_node->Start()) {
+            LOG_F(ERROR, "Failed to start solo mining thread");
+            delete miner;
+            return false;
+        }
+        LOG_F(INFO, "Solo mining initialized successfully");
+        return true;
+    }
     for(unsigned i = 0; i < gpus.size(); ++i) {
       std::pair<PrimeMiner*,void*> worker;
       PrimeMiner* miner = new PrimeMiner(i, gpus.size(), sievePerRound[i], depth, clKernelLSize);
@@ -1178,4 +1215,541 @@ void XPMClient::Toggle()
 
 void XPMClient::setup_adl()
 {
+}
+
+MiningNode::MiningNode(Configuration* cfg, PrimeMiner* miner)
+    : _miner(miner)
+    {
+    int cpuload = cfg->lookupInt("", "cpuload", 1);
+    _url      = cfg->lookupString("", "rpcurl", "127.0.0.1:9912");
+    _user     = cfg->lookupString("", "rpcuser", "");
+    _password = cfg->lookupString("", "rpcpass", "");
+    _wallet   = cfg->lookupString("", "wallet", "");
+
+    unsigned timeout    = cfg->lookupInt("", "timeout",   4);
+    unsigned blocksNum  = cfg->lookupInt("", "threadsNum", 1);
+    unsigned extraNonce = cfg->lookupInt("", "extraNonce", 0);
+
+    _gbtCtx    = new GetBlockTemplateContext(0, _url.c_str(), _user.c_str(), _password.c_str(), _wallet.c_str(), timeout, blocksNum, extraNonce);
+    _submitCtx = new SubmitContext(0, _url.c_str(), _user.c_str(), _password.c_str());
+}
+
+void MiningNode::AssignMiner(PrimeMiner* miner) {
+    _miner = miner;
+}
+
+MiningNode::~MiningNode() {
+    delete _gbtCtx;
+    delete _submitCtx;
+    delete _miner;
+}
+
+bool MiningNode::Start() {
+    LOG_F(INFO, "Starting GetBlockTemplate context...");
+    _gbtCtx->run();
+    LOG_F(INFO, "GetBlockTemplate context started successfully");
+    
+    try {
+        LOG_F(INFO, "Starting solo mining thread...");
+        _thread = std::thread(&MiningNode::RunLoop, this);
+        _thread.detach();
+        LOG_F(INFO, "Solo mining thread started successfully");
+        return true;
+    } catch (const ConfigurationException& ex) {
+        LOG_F(ERROR, "Failed to start solo mining thread: %s", ex.c_str());
+        return false;
+    }
+}
+
+void MiningNode::RunLoop() {
+    if (_miner) _miner->SoloMining(_gbtCtx, _submitCtx);
+}
+
+void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit) {
+    cuCtxSetCurrent(_context);
+
+    LOG_F(INFO, "GPU %d: Starting solo mining process...", mID);
+    
+    unsigned int dataId;
+    bool hasChanged;
+    blktemplate_t *workTemplate = 0;
+
+    stats_t stats;
+    stats.id = mID;
+    stats.errors = 0;
+    stats.fps = 0;
+    stats.primeprob = 0;
+    stats.cpd = 0;
+    
+    const unsigned mPrimorial = 13;
+    uint64_t fermatCount = 1;
+    uint64_t primeCount = 1;
+    
+    time_t time1 = time(0);
+    time_t time2 = time(0);
+    uint64_t testCount = 0;
+
+    unsigned iteration = 0;
+    mpz_class primorial[maxHashPrimorial];
+    block_t blockheader;
+    search_t hashmod;
+    sha256precalcData precalcData;
+
+    lifoBuffer<hash_t> hashes(PW);
+    cudaBuffer<uint32_t> sieveBuf[2];
+    cudaBuffer<uint32_t> sieveOff[2];
+    cudaBuffer<fermat_t> sieveBuffers[SW][FERMAT_PIPELINES][2];
+    cudaBuffer<uint32_t> candidatesCountBuffers[SW][2];
+    pipeline_t fermat320;
+    pipeline_t fermat352;
+    CPrimalityTestParams testParams;
+    std::vector<fermat_t> candis;
+    unsigned numHashCoeff = 32768;
+
+    cudaBuffer<uint32_t> primeBuf[maxHashPrimorial];
+    cudaBuffer<uint32_t> primeBuf2[maxHashPrimorial];
+
+    CUevent sieveEvent;
+    CUDA_SAFE_CALL(cuEventCreate(&sieveEvent, CU_EVENT_BLOCKING_SYNC));
+
+    for (unsigned i = 0; i < maxHashPrimorial - mPrimorial; i++) {
+        CUDA_SAFE_CALL(primeBuf[i].init(mConfig.PCOUNT, true));
+        CUDA_SAFE_CALL(primeBuf[i].copyToDevice(&gPrimes[mPrimorial+i+1]));
+        CUDA_SAFE_CALL(primeBuf2[i].init(mConfig.PCOUNT*2, true));
+        CUDA_SAFE_CALL(primeBuf2[i].copyToDevice(&gPrimes2[2*(mPrimorial+i)+2]));
+        mpz_class p = 1;
+        for(unsigned j = 0; j <= mPrimorial+i; j++)
+            p *= gPrimes[j];    
+        primorial[i] = p;
+    }  
+
+    {
+        unsigned primorialbits = mpz_sizeinbase(primorial[0].get_mpz_t(), 2);
+        mpz_class sievesize = mConfig.SIZE*32*mConfig.STRIPES;
+        unsigned sievebits = mpz_sizeinbase(sievesize.get_mpz_t(), 2);
+        LOG_F(INFO, "GPU %d: primorial = %s (%d bits)", mID, primorial[0].get_str(10).c_str(), primorialbits);
+        LOG_F(INFO, "GPU %d: sieve size = %s (%d bits)", mID, sievesize.get_str(10).c_str(), sievebits);
+    }
+
+    CUDA_SAFE_CALL(hashmod.midstate.init(8, false));
+    CUDA_SAFE_CALL(hashmod.found.init(128, false));
+    CUDA_SAFE_CALL(hashmod.primorialBitField.init(128, false));
+    CUDA_SAFE_CALL(hashmod.count.init(1, false));
+    CUDA_SAFE_CALL(hashBuf.init(PW*mConfig.N, false));
+    
+    unsigned MSO = 1024 * mConfig.STRIPES / 2;
+    for(int sieveIdx = 0; sieveIdx < SW; ++sieveIdx) {
+        for(int instIdx = 0; instIdx < 2; ++instIdx){    
+            for (int pipelineIdx = 0; pipelineIdx < FERMAT_PIPELINES; pipelineIdx++)
+                CUDA_SAFE_CALL(sieveBuffers[sieveIdx][pipelineIdx][instIdx].init(MSO, true));
+                CUDA_SAFE_CALL(candidatesCountBuffers[sieveIdx][instIdx].init(FERMAT_PIPELINES, false)); // CL_MEM_ALLOC_HOST_PTR
+            }
+        }
+    
+    for(int k = 0; k < 2; ++k){
+        CUDA_SAFE_CALL(sieveBuf[k].init(mConfig.SIZE*mConfig.STRIPES/2*mConfig.WIDTH, true));
+        CUDA_SAFE_CALL(sieveOff[k].init(mConfig.PCOUNT*mConfig.WIDTH, true));
+    }
+    
+    CUDA_SAFE_CALL(final.info.init(MFS/(4*mDepth), false)); // CL_MEM_ALLOC_HOST_PTR
+    CUDA_SAFE_CALL(final.count.init(1, false));	 // CL_MEM_ALLOC_HOST_PTR
+
+    FermatInit(fermat320, MFS);
+    FermatInit(fermat352, MFS);
+
+    cudaBuffer<uint32_t> modulosBuf[maxHashPrimorial];
+    unsigned modulosBufferSize = mConfig.PCOUNT*(mConfig.N-1);   
+    for (unsigned bufIdx = 0; bufIdx < maxHashPrimorial-mPrimorial; bufIdx++) {
+        cudaBuffer<uint32_t> &current = modulosBuf[bufIdx];
+        CUDA_SAFE_CALL(current.init(modulosBufferSize, false));
+        for (unsigned i = 0; i < mConfig.PCOUNT; i++) {
+            mpz_class X = 1;
+            for (unsigned j = 0; j < mConfig.N-1; j++) {
+                X <<= 32;
+                mpz_class mod = X % gPrimes[i+mPrimorial+bufIdx+1];
+                current[mConfig.PCOUNT*j+i] = mod.get_ui();
+            }
+        }
+        
+        CUDA_SAFE_CALL(current.copyToDevice());
+    }    
+
+    bool run = true;
+    while(run){
+        {
+            time_t currtime = time(0);
+            time_t elapsed = currtime - time1;
+            if(elapsed > 11){
+                time1 = currtime;
+            }
+            
+            elapsed = currtime - time2;
+            if(elapsed > 15){
+                stats.fps = testCount / elapsed;
+                time2 = currtime;
+                testCount = 0;
+            }
+        }
+
+        stats.primeprob = pow(double(primeCount)/double(fermatCount), 1./mDepth)
+                - 0.0003 * (double(mConfig.TARGET-1)/2. - double(mDepth-1)/2.);
+        stats.cpd = 24.*3600. * double(stats.fps) * pow(stats.primeprob, mConfig.TARGET);
+        
+        // get work
+        bool reset = false;
+        {
+            while ( !(workTemplate = gbp->get(0, workTemplate, &dataId, &hasChanged)) )
+                usleep(100);
+            if(workTemplate && hasChanged){
+                run = true;//ReceivePub(work, worksub);
+                reset = true;
+            }
+        }
+        if(!run)
+            break;
+        
+        // reset if new work
+        if(reset){
+            hashes.clear();
+            hashmod.count[0] = 0;
+            fermat320.bsize = 0;
+            fermat320.buffer[0].count[0] = 0;
+            fermat320.buffer[1].count[0] = 0;
+            fermat352.bsize = 0;
+            fermat352.buffer[0].count[0] = 0;
+            fermat352.buffer[1].count[0] = 0;
+            final.count[0] = 0;
+        
+            for(int sieveIdx = 0; sieveIdx < SW; ++sieveIdx) {
+                for(int instIdx = 0; instIdx < 2; ++instIdx) {
+                    for (int pipelineIdx = 0; pipelineIdx < FERMAT_PIPELINES; pipelineIdx++)
+                        (candidatesCountBuffers[sieveIdx][instIdx])[pipelineIdx] = 0;
+                }
+            }
+                
+            blockheader.version = workTemplate->version;
+            char blkhex[128];
+            _blkmk_bin2hex(blkhex, workTemplate->prevblk, 32);
+            blockheader.hashPrevBlock.SetHex(blkhex);
+            _blkmk_bin2hex(blkhex, workTemplate->_mrklroot, 32);
+            blockheader.hashMerkleRoot.SetHex(blkhex);
+            blockheader.time = workTemplate->curtime;
+            blockheader.bits = *(uint32_t*)workTemplate->diffbits;
+            blockheader.nonce = 1;
+            testParams.nBits = blockheader.bits;
+            
+            unsigned target = TargetGetLength(blockheader.bits);
+            LOG_F(INFO, "GPU %d: Solo Mining target length: %u, Difficulty: %.8f",
+                    mID, target, GetPrimeDifficulty(blockheader.bits));
+            precalcSHA256(&blockheader, hashmod.midstate._hostData, &precalcData);
+            hashmod.count[0] = 0;
+            CUDA_SAFE_CALL(hashmod.midstate.copyToDevice(mHMFermatStream));
+            CUDA_SAFE_CALL(hashmod.count.copyToDevice(mHMFermatStream));
+        }
+        
+        // hashmod fetch & dispatch
+        {
+            for(unsigned i = 0; i < hashmod.count[0]; ++i) {
+                hash_t hash;
+                hash.iter = iteration;
+                hash.time = blockheader.time;
+                hash.nonce = hashmod.found[i];
+                uint32_t primorialBitField = hashmod.primorialBitField[i];
+                uint32_t primorialIdx = primorialBitField >> 16;
+                uint64_t realPrimorial = 1;
+                for (unsigned j = 0; j < primorialIdx+1; j++) {
+                    if (primorialBitField & (1 << j))
+                        realPrimorial *= gPrimes[j];
+                }      
+                
+                mpz_class mpzRealPrimorial;        
+                mpz_import(mpzRealPrimorial.get_mpz_t(), 2, -1, 4, 0, 0, &realPrimorial);
+                primorialIdx = std::max(mPrimorial, primorialIdx) - mPrimorial;
+                mpz_class mpzHashMultiplier = primorial[primorialIdx] / mpzRealPrimorial;
+                unsigned hashMultiplierSize = mpz_sizeinbase(mpzHashMultiplier.get_mpz_t(), 2);
+                mpz_import(mpzRealPrimorial.get_mpz_t(), 2, -1, 4, 0, 0, &realPrimorial);
+                        
+                block_t b = blockheader;
+                b.nonce = hash.nonce;
+                
+                SHA_256 sha;
+                sha.init();
+                sha.update((const unsigned char*)&b, sizeof(b));
+                sha.final((unsigned char*)&hash.hash);
+                sha.init();
+                sha.update((const unsigned char*)&hash.hash, sizeof(uint256));
+                sha.final((unsigned char*)&hash.hash);
+                        
+                if(hash.hash < (uint256(1) << 255)){
+                    LOG_F(WARNING, "hash does not meet minimum.\n");
+                    stats.errors++;
+                    continue;
+                }
+                        
+                    mpz_class mpzHash;
+                    mpz_set_uint256(mpzHash.get_mpz_t(), hash.hash);
+                if(!mpz_divisible_p(mpzHash.get_mpz_t(), mpzRealPrimorial.get_mpz_t())){
+                    LOG_F(WARNING, "mpz_divisible_ui_p failed.\n");
+                    stats.errors++;
+                    continue;
+                }
+                        
+                hash.primorialIdx = primorialIdx;
+                hash.primorial = mpzHashMultiplier;
+                hash.shash = mpzHash * hash.primorial;
+
+                unsigned hid = hashes.push(hash);
+                memset(&hashBuf[hid*mConfig.N], 0, sizeof(uint32_t)*mConfig.N);
+                mpz_export(&hashBuf[hid*mConfig.N], 0, -1, 4, 0, 0, hashes.get(hid).shash.get_mpz_t());        
+            }
+                
+            if (hashmod.count[0])
+                CUDA_SAFE_CALL(hashBuf.copyToDevice(mSieveStream));
+                
+            hashmod.count[0] = 0;
+                
+            int numhash = ((int)(16*mSievePerRound) - (int)hashes.remaining()) * numHashCoeff;
+
+            if(numhash > 0){
+                numhash += mLSize - numhash % mLSize;
+                if(blockheader.nonce > (1u << 31)){
+                    blockheader.time += mThreads;
+                    blockheader.nonce = 1;
+                    precalcSHA256(&blockheader, hashmod.midstate._hostData, &precalcData);
+                }
+
+                CUDA_SAFE_CALL(hashmod.midstate.copyToDevice(mHMFermatStream));
+                CUDA_SAFE_CALL(hashmod.count.copyToDevice(mHMFermatStream));
+
+                void *arguments[] = {
+                    &blockheader.nonce,
+                    &hashmod.found._deviceData,
+                    &hashmod.count._deviceData,
+                    &hashmod.primorialBitField._deviceData,
+                    &hashmod.midstate._deviceData,
+                    &precalcData.merkle,
+                    &precalcData.time,
+                    &precalcData.nbits,
+                    &precalcData.W0,
+                    &precalcData.W1,
+                    &precalcData.new1_0,
+                    &precalcData.new1_1,
+                    &precalcData.new1_2,
+                    &precalcData.new2_0,
+                    &precalcData.new2_1,
+                    &precalcData.new2_2,
+                    &precalcData.temp2_3
+                };
+            
+                CUDA_SAFE_CALL(cuLaunchKernel(mHashMod,
+                                            numhash/mLSize, 1, 1,
+                                            mLSize, 1, 1,
+                                            0, mHMFermatStream, arguments, 0));
+                
+                blockheader.nonce += numhash;
+            }
+        }
+
+        int ridx = iteration % 2;
+        int widx = ridx xor 1;
+        
+        // sieve dispatch    
+        for (unsigned i = 0; i < mSievePerRound; i++) {
+            if(hashes.empty()){
+                if (!reset) {
+                    numHashCoeff += 32768;
+                    LOG_F(WARNING, "ran out of hashes, increasing sha256 work size coefficient to %u", numHashCoeff);
+                }
+                break;
+            }
+        
+            int hid = hashes.pop();
+            unsigned primorialIdx = hashes.get(hid).primorialIdx;
+            
+            CUDA_SAFE_CALL(candidatesCountBuffers[i][widx].copyToDevice(mSieveStream));
+            
+            {
+                void *arguments[] = {
+                    &sieveOff[0]._deviceData,
+                    &sieveOff[1]._deviceData,
+                    &primeBuf[primorialIdx]._deviceData,
+                    &hashBuf._deviceData,
+                    &hid,
+                    &modulosBuf[primorialIdx]._deviceData
+                };
+                
+                CUDA_SAFE_CALL(cuLaunchKernel(mSieveSetup,
+                                                mConfig.PCOUNT/mLSize, 1, 1,
+                                                mLSize, 1, 1,
+                                                0, mSieveStream, arguments, 0));
+            }
+
+            {
+                void *arguments[] = {
+                    &sieveBuf[0]._deviceData,
+                    &sieveOff[0]._deviceData,
+                    &primeBuf2[primorialIdx]._deviceData
+                };
+            
+                CUDA_SAFE_CALL(cuLaunchKernel(mSieve,
+                                                mConfig.STRIPES/2, mConfig.WIDTH, 1,
+                                                mLSize, 1, 1,
+                                                0, mSieveStream, arguments, 0));
+            }
+            
+            {
+                void *arguments[] = {
+                    &sieveBuf[1]._deviceData,
+                    &sieveOff[1]._deviceData,
+                    &primeBuf2[primorialIdx]._deviceData
+                };
+            
+                CUDA_SAFE_CALL(cuLaunchKernel(mSieve,
+                                            mConfig.STRIPES/2, mConfig.WIDTH, 1,                                
+                                            mLSize, 1, 1,
+                                            0, mSieveStream, arguments, 0));          
+                
+            }         
+            
+            {
+                uint32_t multiplierSize = mpz_sizeinbase(hashes.get(hid).shash.get_mpz_t(), 2);
+                void *arguments[] = {
+                    &sieveBuf[0]._deviceData,
+                    &sieveBuf[1]._deviceData,
+                    &sieveBuffers[i][0][widx]._deviceData,
+                    &sieveBuffers[i][1][widx]._deviceData,
+                    &candidatesCountBuffers[i][widx]._deviceData,
+                    &hid,
+                    &multiplierSize,
+                    &mDepth
+                };
+                
+                CUDA_SAFE_CALL(cuLaunchKernel(mSieveSearch,
+                                                (mConfig.SIZE*mConfig.STRIPES/2)/256, 1, 1,
+                                                256, 1, 1,
+                                                0, mSieveStream, arguments, 0));
+                
+                CUDA_SAFE_CALL(cuEventRecord(sieveEvent, mSieveStream)); 
+            }
+        }
+        
+    
+        // get candis
+        int numcandis = final.count[0];
+        numcandis = std::min(numcandis, (int)final.info._size);
+        numcandis = std::max(numcandis, 0);
+        candis.resize(numcandis);
+        primeCount += numcandis;
+        if(numcandis)
+            memcpy(&candis[0], final.info._hostData, numcandis*sizeof(fermat_t));
+        
+        final.count[0] = 0;
+        CUDA_SAFE_CALL(final.count.copyToDevice(mHMFermatStream));
+        FermatDispatch(fermat320, sieveBuffers, candidatesCountBuffers, 0, ridx, widx, testCount, fermatCount, mFermatKernel320, mSievePerRound);
+        FermatDispatch(fermat352, sieveBuffers, candidatesCountBuffers, 1, ridx, widx, testCount, fermatCount, mFermatKernel352, mSievePerRound);
+
+        // copyToHost (cuMemcpyDtoHAsync) always blocking sync call!
+        // syncronize our stream one time per iteration
+        // sieve stream is first because it much bigger
+        CUDA_SAFE_CALL(cuEventSynchronize(sieveEvent)); 
+    #ifdef __WINDOWS__  
+        CUDA_SAFE_CALL(cuCtxSynchronize());
+    #endif
+        for (unsigned i = 0; i < mSievePerRound; i++)
+        CUDA_SAFE_CALL(candidatesCountBuffers[i][widx].copyToHost(mSieveStream));
+        
+        // Synchronize Fermat stream, copy all needed data
+        CUDA_SAFE_CALL(hashmod.found.copyToHost(mHMFermatStream));
+        CUDA_SAFE_CALL(hashmod.primorialBitField.copyToHost(mHMFermatStream));
+        CUDA_SAFE_CALL(hashmod.count.copyToHost(mHMFermatStream));
+        CUDA_SAFE_CALL(fermat320.buffer[widx].count.copyToHost(mHMFermatStream));
+        CUDA_SAFE_CALL(fermat352.buffer[widx].count.copyToHost(mHMFermatStream));
+        CUDA_SAFE_CALL(final.info.copyToHost(mHMFermatStream));
+        CUDA_SAFE_CALL(final.count.copyToHost(mHMFermatStream));
+        
+        // adjust sieves per round
+        if (fermat320.buffer[ridx].count[0] && fermat320.buffer[ridx].count[0] < mBlockSize &&
+            fermat352.buffer[ridx].count[0] && fermat352.buffer[ridx].count[0] < mBlockSize) {
+            mSievePerRound = std::min((unsigned)SW, mSievePerRound+1);
+            LOG_F(WARNING, "not enough candidates (%u available, must be more than %u",
+                    std::max(fermat320.buffer[ridx].count[0], fermat352.buffer[ridx].count[0]),
+                    mBlockSize);
+                    
+            LOG_F(WARNING, "increase sieves per round to %u", mSievePerRound);
+        }
+        
+        // check candis
+        if(candis.size()){
+            mpz_class chainorg;
+            mpz_class multi;
+            for(unsigned i = 0; i < candis.size(); ++i){
+                
+                fermat_t& candi = candis[i];
+                hash_t& hash = hashes.get(candi.hashid);
+                
+                unsigned age = iteration - hash.iter;
+                if(age > PW/2)
+                LOG_F(WARNING, "candidate age > PW/2 with %d", age);
+                
+                multi = candi.index;
+                multi <<= candi.origin;
+                chainorg = hash.shash;
+                chainorg *= multi;
+                
+                testParams.nCandidateType = candi.type;
+                bool isblock = ProbablePrimeChainTestFast(chainorg, testParams, mDepth);
+                unsigned chainlength = TargetGetLength(testParams.nChainLength);
+                std::string chainName = GetPrimeChainName(testParams.nCandidateType+1,testParams.nChainLength);
+                if(testParams.nChainLength >= blockheader.bits){
+                    printf("\ncandis[%d] = %s, chainName %s\n", i, chainorg.get_str(10).c_str(), chainName.c_str());
+                    PrimecoinBlockHeader work;
+                    work.version = blockheader.version;
+                    char blkhex[128];
+                    _blkmk_bin2hex(blkhex, workTemplate->prevblk, 32);
+                    memcpy(work.hashPrevBlock, workTemplate->prevblk, 32);
+                    memcpy(work.hashMerkleRoot, workTemplate->_mrklroot, 32);
+                    work.time = hash.time;
+                    work.bits = blockheader.bits;
+                    work.nonce = hash.nonce;
+                    uint8_t buffer[256];
+                    BIGNUM *xxx = 0;
+                    mpz_class targetMultiplier = hash.primorial * multi;
+                    BN_dec2bn(&xxx, targetMultiplier.get_str().c_str());
+                    BN_bn2mpi(xxx, buffer);
+                    work.multiplier[0] = buffer[3];
+                    std::reverse_copy(buffer+4, buffer+4+buffer[3], work.multiplier+1);
+                    submit->submitBlock(workTemplate, work, dataId);
+                    if(isblock){
+                        LOG_F(1, "GPU %d found BLOCK!", mID);
+                        std::string nbitsTarget =TargetToString(testParams.nBits);
+                        LOG_F(1,"Found chain:%s",chainName.c_str());
+                        LOG_F(1,"Target (nbits):%s\n----------------------------------------------------------------------",nbitsTarget.c_str());
+                    };
+                }else if(chainlength < mDepth){
+                    LOG_F(WARNING, "ProbablePrimeChainTestFast %ubits %d/%d", (unsigned)mpz_sizeinbase(chainorg.get_mpz_t(), 2), chainlength, mDepth);
+                    LOG_F(WARNING, "origin: %s", chainorg.get_str().c_str());
+                    LOG_F(WARNING, "type: %u", (unsigned)candi.type);
+                    LOG_F(WARNING, "multiplier: %u", (unsigned)candi.index);
+                    LOG_F(WARNING, "layer: %u", (unsigned)candi.origin);
+                    LOG_F(WARNING, "hash primorial: %s", hash.primorial.get_str().c_str());
+                    LOG_F(WARNING, "primorial multipliers: ");
+                    for (unsigned i = 0; i < mPrimorial;) {
+                        if (hash.primorial % gPrimes[i] == 0) {
+                            hash.primorial /= gPrimes[i];
+                            LOG_F(WARNING, " * [%u]%u", i+1, gPrimes[i]);
+                        } else {
+                            i++;
+                        }
+                    }
+                    stats.errors++;
+                }
+            }
+        }
+
+        if(MakeExit)
+            break;
+        
+        iteration++;
+    }
+
 }
