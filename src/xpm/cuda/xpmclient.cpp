@@ -1638,7 +1638,6 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
         int numcandis = final.count[0];
         numcandis = std::min(numcandis, (int)final.info._size);
         numcandis = std::max(numcandis, 0);
-        // printf("got %d new candis\n", numcandis);
         candis.resize(numcandis);
         primeCount += numcandis;
         if(numcandis)
