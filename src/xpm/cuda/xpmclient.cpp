@@ -1449,7 +1449,6 @@ void PrimeMiner::SoloMining(GetBlockTemplateContext* gbp, SubmitContext* submit)
         
         // hashmod fetch & dispatch
         {
-        //  printf("got %d new hashes\n", hashmod.count[0]); fflush(stdout);
             for(unsigned i = 0; i < hashmod.count[0]; ++i) {
                 hash_t hash;
                 hash.iter = iteration;
