@@ -507,6 +507,7 @@ int main(int argc, char **argv)
 		proto::Reply rep;
 
     // Solo mode: Skip all mining pool connections
+    // The main thread just waits here while background threads do the work.
     if (gMode == "solo") {
       LOG_F(INFO, "Solo mode: skipping all pool connection logic");
       while (!gExit) {
