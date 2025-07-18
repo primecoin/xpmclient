@@ -56,11 +56,7 @@ static std::string gRpcUrl = "127.0.0.1:9912";
 static bool ConnectBitcoin() {
 	
 	const proto::ServerInfo& sinfo = gServerInfo;
-    if (gMode == "solo") {
-        LOG_F(INFO, "Connecting to rpc node: %s ...", gRpcUrl.c_str());
-    } else {
-        LOG_F(INFO, "Connecting to bitcoin: %s:%d ...", sinfo.host().c_str(), sinfo.router());
-    }
+  LOG_F(INFO, "Connecting to bitcoin: %s:%d ...", sinfo.host().c_str(), sinfo.router());
 	int linger = 0;
 	char endpoint[256];
 	snprintf(endpoint, sizeof(endpoint), "tcp://%s:%d", sinfo.host().c_str(), sinfo.router());	
@@ -97,11 +93,7 @@ static bool ConnectBitcoin() {
 static bool ConnectSignals() {
 	
 	const proto::ServerInfo& sinfo = gServerInfo;
-    if (gMode == "solo") {
-        LOG_F(INFO, "Connecting to rpc node signals: %s ...", gRpcUrl.c_str());
-    } else {
-        LOG_F(INFO, "Connecting to signals: %s:%d ...", sinfo.host().c_str(), sinfo.pub());
-    }
+  LOG_F(INFO, "Connecting to signals: %s:%d ...", sinfo.host().c_str(), sinfo.pub());
 	int linger = 0;
 	char endpoint[256];
 	snprintf(endpoint, sizeof(endpoint), "tcp://%s:%d", sinfo.host().c_str(), sinfo.pub());
@@ -193,10 +185,9 @@ static void HandleNewBlock(const proto::Block& block, bool requestWork=true) {
 
 
 static bool HandleNewWork(const proto::Work& work) {
-    if (gMode == "pool") {
-        LOG_F(INFO, "Work received: height=%d diff=%.8g",
-        work.height(), GetPrimeDifficulty(work.bits()));
-    }
+  LOG_F(INFO, "Work received: height=%d diff=%.8g",
+      work.height(), GetPrimeDifficulty(work.bits()));
+	
 	return gClient->TakeWork(work);
 	
 }
@@ -471,6 +462,13 @@ int main(int argc, char **argv)
   std::string mode = cfg->lookupString("", "mode", "pool");
   gMode = mode;
   gRpcUrl = cfg->lookupString("", "rpcurl", "127.0.0.1:9912");
+  
+  // Verify if the mode is valid
+  if (mode != "solo" && mode != "pool") {
+    LOG_F(ERROR, "Invalid mode '%s' in config.txt. Only 'solo' and 'pool' are supported.", mode.c_str());
+    exit(EXIT_FAILURE);
+  }
+  
   if (mode == "solo") {
     // Using wallet address in Solo mode
     std::string wallet = cfg->lookupString("", "wallet", "");
@@ -508,12 +506,18 @@ int main(int argc, char **argv)
 		gBlock.Clear();
 		proto::Reply rep;
 
-    bool frontendConnected = false;
-    if (gMode == "pool") {
-      LOG_F(INFO, "Connecting to frontend: %s:%d ...", frontHost.c_str(), frontPort);
-    } else {
-      LOG_F(INFO, "Connecting to rpc node: %s ...", gRpcUrl.c_str());
+    // Solo mode: Skip all mining pool connections
+    // The main thread just waits here while background threads do the work.
+    if (gMode == "solo") {
+      LOG_F(INFO, "Solo mode: skipping all pool connection logic");
+      while (!gExit) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+      }
+      break;
     }
+
+    bool frontendConnected = false;
+    LOG_F(INFO, "Connecting to frontend: %s:%d ...", frontHost.c_str(), frontPort);
 
     while (!frontendConnected) {
       int result;
