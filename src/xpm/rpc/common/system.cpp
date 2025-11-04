@@ -110,12 +110,10 @@ void printMiningStats(timeMark workBeginPoint, MineContext* mineCtx, int threads
     printf(" ** total speed: %.3lfG, average: %.3lfG\n", speed, averageSpeed);
     unsigned chIdx;
     
-    for (chIdx = 1; chIdx < MaxChainLength && foundChains[chIdx]; chIdx++) {
-        double chainsPerSec = foundChains[chIdx] / (elapsedTime / 1000000.0);
-        printf("   * chains/%u: %lu %.3lf/sec ",
-                chIdx, foundChains[chIdx], chainsPerSec);
-        if (chIdx >= 7)
-            printf("%.3lf/hour ", chainsPerSec * 3600.0);
+    for (chIdx = 4; chIdx < MaxChainLength && foundChains[chIdx]; chIdx++) {
+        double chainsPerDay = foundChains[chIdx] / (elapsedTime / 1000000.0) * 86400.0;
+        printf("   * chains/%u: %lu (%.3lf/day) ",
+                chIdx, foundChains[chIdx], chainsPerDay);
     }
     printf("\n\n");
 }
