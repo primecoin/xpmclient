@@ -3,6 +3,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <stdio.h>
+#include <ctime>
 #include <stdlib.h>
 #include <string.h>
 
