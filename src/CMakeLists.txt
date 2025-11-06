@@ -37,11 +37,108 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
 )
 
 include(FindDependencies)
+# Force use of system-installed protobuf
 find_package(Protobuf REQUIRED)
-find_package(OpenCL)
 
+if (Protobuf_FOUND)
+  message(STATUS "Using system Protobuf version: ${Protobuf_VERSION}")
+  set(Protobuf_INCLUDE_DIR /usr/include)
+  set(Protobuf_LIBRARIES /usr/lib/x86_64-linux-gnu/libprotobuf.so)
+  set(Protobuf_PROTOC_EXECUTABLE /usr/bin/protoc)
+endif()
+
+# OpenCL optional detection (skip building OpenCL client if not available)
+find_package(OpenCL QUIET)
+
+# CLRX detection (auto-detect with manual override support)
+if (OpenCL_FOUND)
+  set(CLRX_ROOT "$ENV{HOME}/CLRX-mirror")
+
+  # Headers
+  if (NOT CLRX_INCLUDE_DIRECTORY)
+    find_path(CLRX_INCLUDE_DIRECTORY
+      CLRX/amdbin/AmdBinaries.h
+      HINTS
+        ${CLRX_ROOT}
+        ${CLRX_ROOT}/include
+    )
+  endif()
+
+  if (NOT CLRX_CONFIG_INCLUDE_DIRECTORY)
+    find_path(CLRX_CONFIG_INCLUDE_DIRECTORY
+      CLRX/Config.h
+      HINTS
+        ${CLRX_ROOT}
+        ${CLRX_ROOT}/include
+        ${CLRX_ROOT}/build
+    )
+  endif()
+
+  # Libraries
+  if (NOT CLRX_AMDASM_LIBRARY)
+    find_library(CLRX_AMDASM_LIBRARY
+      NAMES CLRXAmdAsm
+      HINTS
+        ${CLRX_ROOT}/build/amdasm
+        ${CLRX_ROOT}/build/lib
+    )
+  endif()
+
+  if (NOT CLRX_AMDBIN_LIBRARY)
+    find_library(CLRX_AMDBIN_LIBRARY
+      NAMES CLRXAmdBin
+      HINTS
+        ${CLRX_ROOT}/build/amdbin
+        ${CLRX_ROOT}/build/lib
+    )
+  endif()
+
+  if (NOT CLRX_UTILS_LIBRARY)
+    find_library(CLRX_UTILS_LIBRARY
+      NAMES CLRXUtils
+      HINTS
+        ${CLRX_ROOT}/build/utils
+        ${CLRX_ROOT}/build/lib
+    )
+  endif()
+
+  # Flag check
+  set(CLRX_ALL_FOUND FALSE)
+  if (CLRX_INCLUDE_DIRECTORY AND CLRX_AMDASM_LIBRARY AND CLRX_AMDBIN_LIBRARY AND CLRX_UTILS_LIBRARY)
+    set(CLRX_ALL_FOUND TRUE)
+  endif()
+
+  # Optional debug output
+  message(STATUS "CLRX_INCLUDE_DIRECTORY: ${CLRX_INCLUDE_DIRECTORY}")
+  message(STATUS "CLRX_AMDASM_LIBRARY: ${CLRX_AMDASM_LIBRARY}")
+  message(STATUS "CLRX_AMDBIN_LIBRARY: ${CLRX_AMDBIN_LIBRARY}")
+  message(STATUS "CLRX_UTILS_LIBRARY: ${CLRX_UTILS_LIBRARY}")
+endif()
+
+# CUDA detection: prefer CUDAToolkit (>= 3.17), otherwise fallback to legacy FindCUDA
 if (NOT CMAKE_CROSSCOMPILING)
-  find_package(CUDA)
+  if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.17")
+    find_package(CUDAToolkit QUIET)
+    if (CUDAToolkit_FOUND)
+      set(CUDA_FOUND TRUE)
+      set(CUDA_INCLUDE_DIRS ${CUDAToolkit_INCLUDE_DIRS})
+      message(STATUS "CUDA Toolkit found: ${CUDAToolkit_VERSION}")
+      message(STATUS "CUDA Include: ${CUDAToolkit_INCLUDE_DIRS}")
+    else()
+      # Only attempt legacy FindCUDA when CMake < 3.27 to avoid removed-module errors
+      if (CMAKE_VERSION VERSION_LESS "3.27")
+        find_package(CUDA QUIET)
+        if (CUDA_FOUND)
+          message(STATUS "CUDA found (legacy FindCUDA)")
+        endif()
+      endif()
+    endif()
+  else()
+    find_package(CUDA QUIET)
+    if (CUDA_FOUND)
+      message(STATUS "CUDA found (legacy FindCUDA)")
+    endif()
+  endif()
 else()
   find_path(CUDA_TOOLKIT_INCLUDE
     device_functions.h
@@ -74,6 +171,11 @@ endif()
 
 if (APPLE)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCL_SILENCE_DEPRECATION")
+endif()
+
+# If OpenCL is available, set target OpenCL version to reduce default 3.0 header warnings
+if (OpenCL_FOUND)
+  add_definitions(-DCL_TARGET_OPENCL_VERSION=200)
 endif()
 
 if (WIN32)
@@ -131,91 +233,42 @@ target_include_directories(blkmaker PUBLIC
   ${CMAKE_SOURCE_DIR}/xpm/rpc/blkmaker
 )
 
-add_executable(xpmclient
-  adl.cpp
-  baseclient.cpp
-  ${AMD_MONITORING_SOURCES}
-  loguru.cpp
-  opencl.cpp
-  prime.cpp
-  sha256.cpp
-  zmqextras.cpp
-  xpm/opencl/xpmclient.cpp
-  xpm/opencl/benchmarks.cpp
-  codegen/generic.cpp
-  codegen/gcn.cpp
-  xpm/rpc/common/getblocktemplate.cpp
-  xpm/rpc/common/primecoin.cpp
-  xpm/rpc/common/system.cpp
-  ${ProtoSources}
-)
-
-target_include_directories(xpmclient PUBLIC
-  ${CMAKE_SOURCE_DIR}
-  ${CMAKE_SOURCE_DIR}/xpm/opencl
-  ${CMAKE_SOURCE_DIR}/xpm/rpc/blkmaker
-  ${CMAKE_SOURCE_DIR}/xpm/rpc/common
-  ${CMAKE_SOURCE_DIR}/xpm/rpc/include
-  ${CLRX_INCLUDE_DIRECTORIES}
-)
-
-target_link_libraries(xpmclient
-  ${LIBRARIES}
-  ${OpenCL_LIBRARIES}
-  ${CLRX_LIBRARIES}
-  blkmaker
-  curl
-  jansson
-  crypto
-  ssl
-  stdc++
-)
-
-if (STATIC_BUILD)
-  set_target_properties(xpmclient PROPERTIES LINK_SEARCH_END_STATIC 1)
-endif()
-
-# XPM CUDA GPU Client
-
-if (CUDA_FOUND)
-  find_library(CUDA_driver_LIBRARY cuda
-    ${CUDA_TOOLKIT_ROOT_DIR}/lib64
-    ${CUDA_TOOLKIT_ROOT_DIR}/lib/x64
-  )
-  find_library(CUDA_nvrtc_LIBRARY nvrtc
-    ${CUDA_TOOLKIT_ROOT_DIR}/lib64
-    ${CUDA_TOOLKIT_ROOT_DIR}/lib/x64
-  )
-
-  add_executable(xpmclientnv
+if (OpenCL_FOUND AND CLRX_ALL_FOUND)
+  add_executable(xpmclient
     adl.cpp
     baseclient.cpp
-    cudautil.cpp
+    ${AMD_MONITORING_SOURCES}
     loguru.cpp
+    opencl.cpp
     prime.cpp
     sha256.cpp
     zmqextras.cpp
-    xpm/cuda/xpmclient.cpp
-    xpm/cuda/benchmarks.cpp
+    xpm/opencl/xpmclient.cpp
+    xpm/opencl/benchmarks.cpp
+    codegen/generic.cpp
+    codegen/gcn.cpp
     xpm/rpc/common/getblocktemplate.cpp
     xpm/rpc/common/primecoin.cpp
     xpm/rpc/common/system.cpp
     ${ProtoSources}
   )
 
-  target_include_directories(xpmclientnv PUBLIC
+  target_include_directories(xpmclient PUBLIC
     ${CMAKE_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/xpm/cuda
-    ${CUDA_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/xpm/opencl
     ${CMAKE_SOURCE_DIR}/xpm/rpc/blkmaker
     ${CMAKE_SOURCE_DIR}/xpm/rpc/common
     ${CMAKE_SOURCE_DIR}/xpm/rpc/include
+    ${CLRX_INCLUDE_DIRECTORY}
+    ${CLRX_CONFIG_INCLUDE_DIRECTORY}
   )
 
-  target_link_libraries(xpmclientnv 
+  target_link_libraries(xpmclient
     ${LIBRARIES}
-    ${CUDA_driver_LIBRARY} 
-    ${CUDA_nvrtc_LIBRARY}
+    ${OpenCL_LIBRARIES}
+    ${CLRX_AMDASM_LIBRARY}
+    ${CLRX_AMDBIN_LIBRARY}
+    ${CLRX_UTILS_LIBRARY}
     blkmaker
     curl
     jansson
@@ -223,10 +276,155 @@ if (CUDA_FOUND)
     ssl
     stdc++
   )
-  
+
+  if (STATIC_BUILD)
+    set_target_properties(xpmclient PROPERTIES LINK_SEARCH_END_STATIC 1)
+  endif()
+
+  # Post-build: copy OpenCL kernels and config
+  file(GLOB OPENCL_GENERIC_KERNELS "${CMAKE_SOURCE_DIR}/xpm/opencl/generic_*")
+  file(GLOB OPENCL_GCN_KERNELS "${CMAKE_SOURCE_DIR}/xpm/opencl/gcn_*")
+  add_custom_command(TARGET xpmclient POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/xpm/opencl
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      ${OPENCL_GENERIC_KERNELS}
+      ${OPENCL_GCN_KERNELS}
+      ${CMAKE_BINARY_DIR}/xpm/opencl/
+    COMMENT "Copying OpenCL kernel source files to build directory"
+  )
+
+# Copy OpenCL config.txt to build directory (binary-safe)
+if (EXISTS ${CMAKE_SOURCE_DIR}/xpm/opencl/config.txt)
+file(COPY
+    ${CMAKE_SOURCE_DIR}/xpm/opencl/config.txt
+    DESTINATION ${CMAKE_BINARY_DIR}
+    FILE_PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+)
+endif()
+else()
+  if (NOT OpenCL_FOUND)
+    message(STATUS "OpenCL not found. Skipping OpenCL client (xpmclient).\n  Install hint: sudo apt install ocl-icd-opencl-dev")
+  elseif (NOT CLRX_ALL_FOUND)
+    message(STATUS "CLRX not found (headers or libraries missing). Skipping OpenCL client (xpmclient).\n  Required: -DCLRX_INCLUDE_DIRECTORY -DCLRX_AMDASM_LIBRARY -DCLRX_AMDBIN_LIBRARY -DCLRX_UTILS_LIBRARY\n  Typical install: git clone https://github.com/CLRX/CLRX-mirror.git; cmake -DCMAKE_INSTALL_PREFIX=$HOME/install/x86_64-Linux; make install\n  Example: -DCLRX_INCLUDE_DIRECTORY=$HOME/install/x86_64-Linux/include -DCLRX_AMDASM_LIBRARY=$HOME/install/x86_64-Linux/lib64/libCLRXAmdAsm.a -DCLRX_AMDBIN_LIBRARY=$HOME/install/x86_64-Linux/lib64/libCLRXAmdBin.a -DCLRX_UTILS_LIBRARY=$HOME/install/x86_64-Linux/lib64/libCLRXUtils.a")
+  endif()
+endif()
+
+# XPM CUDA GPU Client
+
+if (CUDA_FOUND)
+  # Try CUDAToolkit imported targets; fallback to manual library lookup if unavailable
+  if (CUDAToolkit_FOUND)
+    add_executable(xpmclientnv
+      adl.cpp
+      baseclient.cpp
+      cudautil.cpp
+      loguru.cpp
+      prime.cpp
+      sha256.cpp
+      zmqextras.cpp
+      xpm/cuda/xpmclient.cpp
+      xpm/cuda/benchmarks.cpp
+      xpm/rpc/common/getblocktemplate.cpp
+      xpm/rpc/common/primecoin.cpp
+      xpm/rpc/common/system.cpp
+      ${ProtoSources}
+    )
+
+    target_include_directories(xpmclientnv PUBLIC
+      ${CMAKE_SOURCE_DIR}
+      ${CMAKE_SOURCE_DIR}/xpm/cuda
+      ${CUDAToolkit_INCLUDE_DIRS}
+      ${CMAKE_SOURCE_DIR}/xpm/rpc/blkmaker
+      ${CMAKE_SOURCE_DIR}/xpm/rpc/common
+      ${CMAKE_SOURCE_DIR}/xpm/rpc/include
+    )
+
+    target_link_libraries(xpmclientnv
+      ${LIBRARIES}
+      CUDA::cuda_driver
+      CUDA::nvrtc
+      blkmaker
+      curl
+      jansson
+      crypto
+      ssl
+      stdc++
+    )
+  else()
+    # Legacy path: manually locate libcuda and libnvrtc
+    find_library(CUDA_driver_LIBRARY cuda
+      ${CUDA_TOOLKIT_ROOT_DIR}/lib64
+      ${CUDA_TOOLKIT_ROOT_DIR}/lib/x64
+      /usr/local/cuda/lib64
+      /usr/lib/x86_64-linux-gnu
+    )
+    find_library(CUDA_nvrtc_LIBRARY nvrtc
+      ${CUDA_TOOLKIT_ROOT_DIR}/lib64
+      ${CUDA_TOOLKIT_ROOT_DIR}/lib/x64
+      /usr/local/cuda/lib64
+      /usr/lib/x86_64-linux-gnu
+    )
+
+    if (NOT CUDA_driver_LIBRARY)
+      message(FATAL_ERROR "CUDA driver library (libcuda) not found")
+    endif()
+    if (NOT CUDA_nvrtc_LIBRARY)
+      message(FATAL_ERROR "CUDA NVRTC library (libnvrtc) not found")
+    endif()
+
+    add_executable(xpmclientnv
+      adl.cpp
+      baseclient.cpp
+      cudautil.cpp
+      loguru.cpp
+      prime.cpp
+      sha256.cpp
+      zmqextras.cpp
+      xpm/cuda/xpmclient.cpp
+      xpm/cuda/benchmarks.cpp
+      xpm/rpc/common/getblocktemplate.cpp
+      xpm/rpc/common/primecoin.cpp
+      xpm/rpc/common/system.cpp
+      ${ProtoSources}
+    )
+
+    target_include_directories(xpmclientnv PUBLIC
+      ${CMAKE_SOURCE_DIR}
+      ${CMAKE_SOURCE_DIR}/xpm/cuda
+      ${CUDA_INCLUDE_DIRS}
+      ${CMAKE_SOURCE_DIR}/xpm/rpc/blkmaker
+      ${CMAKE_SOURCE_DIR}/xpm/rpc/common
+      ${CMAKE_SOURCE_DIR}/xpm/rpc/include
+    )
+
+    target_link_libraries(xpmclientnv
+      ${LIBRARIES}
+      ${CUDA_driver_LIBRARY}
+      ${CUDA_nvrtc_LIBRARY}
+      blkmaker
+      curl
+      jansson
+      crypto
+      ssl
+      stdc++
+    )
+  endif()
+
   if (STATIC_BUILD)
     set_target_properties(xpmclientnv PROPERTIES LINK_SEARCH_END_STATIC 1)
   endif()
+
+  # Post-build: copy CUDA kernel sources for NVRTC runtime compilation
+  file(GLOB CUDA_KERNEL_SOURCES "${CMAKE_SOURCE_DIR}/xpm/cuda/*.cu")
+  add_custom_command(TARGET xpmclientnv POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/xpm/cuda
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      ${CUDA_KERNEL_SOURCES}
+      ${CMAKE_BINARY_DIR}/xpm/cuda/
+    COMMENT "Copying CUDA kernel source files to build directory for NVRTC runtime compilation"
+  )
+else()
+  message(STATUS "CUDA not found. Skipping CUDA client (xpmclientnv).\n  Install hint: sudo apt install nvidia-cuda-toolkit or visit https://developer.nvidia.com/cuda-downloads")
 endif()
   
 # ZCash GPU Client
@@ -253,4 +451,13 @@ if (EQUIHASH_ENABLED)
   if (STATIC_BUILD)
     set_target_properties(zcashgpuclient PROPERTIES LINK_SEARCH_END_STATIC 1)
   endif()
+endif()
+
+# Copy CUDA config.txt to build directory to avoid manual copying
+if (EXISTS ${CMAKE_SOURCE_DIR}/xpm/cuda/config.txt)
+  file(COPY
+    ${CMAKE_SOURCE_DIR}/xpm/opencl/config.txt
+    DESTINATION ${CMAKE_BINARY_DIR}
+    FILE_PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+  )
 endif()
